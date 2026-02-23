@@ -1,0 +1,17 @@
+{
+  "name": "hongshi-engine",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server/index.js"
+  },
+  "dependencies": {
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.0"
+  }
+}
