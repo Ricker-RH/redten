@@ -6,7 +6,8 @@ function PlayerSeat({
   hasCrown,
   isPassed,
   isLastActor,
-  campLabel,
+  guessCamp,
+  onToggleGuess,
 }) {
   const base =
     "px-3 py-2 rounded-2xl bg-slate-900/85 border border-slate-700/80 text-xs text-slate-100 min-w-[120px]"
@@ -33,6 +34,7 @@ function PlayerSeat({
             ? " shadow-[0_0_18px_rgba(52,211,153,0.9)] border-emerald-300/80"
             : "")
         }
+        onClick={onToggleGuess}
       >
         <div className="flex items-center gap-2">
           <div className="relative flex items-end gap-[2px]">
@@ -47,9 +49,14 @@ function PlayerSeat({
             <span className="text-[10px] text-slate-400">
               座位 {seat.seatId} · {stateText}
             </span>
-            {campLabel && (
-              <span className="mt-0.5 inline-flex items-center text-[9px] text-emerald-300">
-                {campLabel}
+            {guessCamp === "red" && (
+              <span className="mt-0.5 inline-flex items-center px-1.5 py-[1px] rounded-full bg-rose-500/90 text-[9px] font-semibold text-slate-50 border border-rose-200/80">
+                你猜：红十阵营
+              </span>
+            )}
+            {guessCamp === "other" && (
+              <span className="mt-0.5 inline-flex items-center px-1.5 py-[1px] rounded-full bg-slate-700/90 text-[9px] font-semibold text-emerald-200 border border-slate-400/80">
+                你猜：非红十阵营
               </span>
             )}
           </div>

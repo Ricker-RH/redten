@@ -1,3 +1,4 @@
+import { useState } from "react"
 import PlayerHand from "./PlayerHand"
 import PlayerSeat from "./PlayerSeat"
 import TurnInfo from "./TurnInfo"
@@ -37,6 +38,8 @@ function GameTable({
   kingPlayerId,
   redTenPlayerIds = [],
 }) {
+  const [seatCampGuesses, setSeatCampGuesses] = useState({})
+
   if (!roomState) {
     return (
       <div className="flex-1 flex items-center justify-center bg-slate-950">
@@ -71,8 +74,17 @@ function GameTable({
     lastEvent && typeof lastEvent.seatId === "number" ? lastEvent.seatId : null
   const passedSeatIdSet = new Set(roomState.passedSeatIds || [])
   const redTenPlayerIdSet = new Set(redTenPlayerIds || [])
-  const campInfo = roomState.campInfo || null
-  const redTenCampSeatIdSet = new Set(campInfo && campInfo.redTenCampSeats ? campInfo.redTenCampSeats : [])
+
+  const toggleSeatGuess = seatId => {
+    setSeatCampGuesses(prev => {
+      const prevValue = prev[seatId] || null
+      const nextValue = prevValue === "red" ? "other" : prevValue === "other" ? null : "red"
+      return {
+        ...prev,
+        [seatId]: nextValue,
+      }
+    })
+  }
 
   const lastCombo = roomState.lastCombo
   const lastComboCards = lastCombo ? lastCombo.cards || lastCombo : []
@@ -82,8 +94,6 @@ function GameTable({
       <div className="flex-1 flex flex-col md:hidden">
         <div className="flex flex-wrap items-center justify-center px-2 pt-2 pb-1 gap-2">
           {otherSeats.map(seat => {
-            const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
-            const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
             return (
               <div key={seat.seatId} className="flex-[0_0_48%] max-w-[48%]">
                 <PlayerSeat
@@ -94,7 +104,8 @@ function GameTable({
                   hasCrown={kingPlayerId === seat.playerId}
                   isPassed={passedSeatIdSet.has(seat.seatId)}
                   isLastActor={seat.seatId === lastActorSeatId}
-                  campLabel={campLabel}
+                  guessCamp={seatCampGuesses[seat.seatId] || null}
+                  onToggleGuess={() => toggleSeatGuess(seat.seatId)}
                 />
               </div>
             )
@@ -208,8 +219,6 @@ function GameTable({
         <div className="flex-1 flex flex-col md:flex-row">
           <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pt-3 md:pt-0">
             {leftSideSeats.map(seat => {
-              const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
-              const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
               return (
                 <PlayerSeat
                   key={seat.seatId}
@@ -220,7 +229,8 @@ function GameTable({
                   hasCrown={kingPlayerId === seat.playerId}
                   isPassed={passedSeatIdSet.has(seat.seatId)}
                   isLastActor={seat.seatId === lastActorSeatId}
-                  campLabel={campLabel}
+                  guessCamp={seatCampGuesses[seat.seatId] || null}
+                  onToggleGuess={() => toggleSeatGuess(seat.seatId)}
                 />
               )
             })}
@@ -402,8 +412,6 @@ function GameTable({
           </div>
           <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pb-3 md:pb-0">
             {rightSideSeats.map(seat => {
-              const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
-              const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
               return (
                 <PlayerSeat
                   key={seat.seatId}
@@ -414,7 +422,8 @@ function GameTable({
                   hasCrown={kingPlayerId === seat.playerId}
                   isPassed={passedSeatIdSet.has(seat.seatId)}
                   isLastActor={seat.seatId === lastActorSeatId}
-                  campLabel={campLabel}
+                  guessCamp={seatCampGuesses[seat.seatId] || null}
+                  onToggleGuess={() => toggleSeatGuess(seat.seatId)}
                 />
               )
             })}
