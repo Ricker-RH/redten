@@ -420,17 +420,19 @@ function GameTable({
             })}
           </div>
         </div>
-        <div className="h-40 md:h-40 px-3 md:px-10 flex items-center justify-between bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
-          <div className="w-40 md:w-64">
-            <TurnInfo
-              roomState={roomState}
-              playerId={playerId}
-              lastEvent={lastEvent}
-              kingPlayerId={kingPlayerId}
-            />
+        <div className="h-40 md:h-40 px-3 md:px-10 flex items-center justify-center relative bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
+          <div className="absolute left-3 md:left-10">
+            <div className="w-36 md:w-64">
+              <TurnInfo
+                roomState={roomState}
+                playerId={playerId}
+                lastEvent={lastEvent}
+                kingPlayerId={kingPlayerId}
+              />
+            </div>
           </div>
           <div className="flex-1 flex flex-col items-center">
-            <div className="w-full max-w-xs md:max-w-sm flex items-center justify-center gap-2 md:gap-3 mb-2">
+            <div className="w-full max-w-xs md:max-w-md flex items-center justify-center gap-2 md:gap-3 mb-2">
               {canInstantWin && (
                 <button
                   className="px-4 md:px-5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-[11px] md:text-xs font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.97] transition"
