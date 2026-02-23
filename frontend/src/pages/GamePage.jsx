@@ -17,6 +17,8 @@ function GamePage({ playerId, roomId, onExit }) {
   const [drawSeatId, setDrawSeatId] = useState(null)
   const [drawDisplaySeat, setDrawDisplaySeat] = useState(null)
   const [isDrawingSeat, setIsDrawingSeat] = useState(false)
+  const [enableSound, setEnableSound] = useState(true)
+  const [lastActionType, setLastActionType] = useState("")
   const lastGameStateRef = useRef(null)
 
   const { status, sendAction } = useGameSocket({
@@ -96,6 +98,9 @@ function GamePage({ playerId, roomId, onExit }) {
     },
     onActionResult: result => {
       setActionResult(result)
+      if (result && result.action && result.action.type) {
+        setLastActionType(result.action.type)
+      }
       if (!result.accepted && result.error) {
         setErrorText(result.error)
       }
@@ -204,14 +209,38 @@ function GamePage({ playerId, roomId, onExit }) {
     }
   }, [showSeatDraw, drawSeatId])
 
+  useEffect(() => {
+    if (!enableSound || !lastActionType) {
+      return
+    }
+    let src = ""
+    if (lastActionType === "PLAY_CARDS") {
+      src =
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+    } else if (lastActionType === "PASS") {
+      src =
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+    } else if (lastActionType === "INSTANT_WIN") {
+      src =
+        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+    }
+    if (src) {
+      const audio = new Audio(src)
+      audio.volume = 0.4
+      audio.play().catch(() => {})
+    }
+  }, [enableSound, lastActionType])
+
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50">
-      <header className="h-16 flex items-center justify-between px-8 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
-        <div className="flex items-baseline gap-4">
+    <div className="min-h-screen flex flex-col items-stretch bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50">
+      <header className="h-14 md:h-16 flex items-center justify-between px-4 md:px-8 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
+        <div className="flex items-baseline gap-3 md:gap-4">
           <div className="text-sm tracking-[0.25em] text-cyan-400 uppercase">Room</div>
-          <div className="text-lg font-semibold">#{roomId || "未加入"}</div>
+          <div className="text-base md:text-lg font-semibold truncate">
+            #{roomId || "未加入"}
+          </div>
         </div>
-        <div className="flex items-center gap-4 text-xs text-slate-300">
+        <div className="flex items-center gap-2 md:gap-4 text-[11px] md:text-xs text-slate-300">
           <div
             className={
               status === "connected"
@@ -222,20 +251,30 @@ function GamePage({ playerId, roomId, onExit }) {
             }
           >
             <span className="h-2 w-2 rounded-full bg-current" />
-            <span>
+            <span className="hidden sm:inline">
               {status === "connected" ? "已连接" : status === "connecting" ? "连接中" : "已断开"}
             </span>
           </div>
-          <div className="text-slate-500">玩家 {playerId}</div>
+          <div className="hidden sm:block text-slate-500">玩家 {playerId}</div>
           <button
-            className="px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-xs hover:border-rose-400 hover:text-rose-300 transition"
+            className={
+              "px-2 py-1 rounded-lg border border-slate-600 text-[10px] md:text-xs flex items-center gap-1 " +
+              (enableSound ? "text-emerald-300" : "text-slate-400")
+            }
+            onClick={() => setEnableSound(prev => !prev)}
+          >
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-current" />
+            <span>{enableSound ? "音效开" : "音效关"}</span>
+          </button>
+          <button
+            className="ml-1 px-2.5 md:px-3 py-1.5 rounded-lg border border-slate-600 text-slate-300 text-[10px] md:text-xs hover:border-rose-400 hover:text-rose-300 transition"
             onClick={onExit}
           >
             退出房间
           </button>
         </div>
       </header>
-      <main className="flex-1 flex flex-col">
+      <main className="flex-1 flex flex-col items-stretch">
         {room && gameState ? (
           <GameTable
             roomState={gameState}
@@ -252,8 +291,8 @@ function GamePage({ playerId, roomId, onExit }) {
             redTenPlayerIds={redTenPlayerIds}
           />
         ) : (
-          <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900">
-            <div className="w-full max-w-2xl px-8 py-6 rounded-3xl bg-slate-900/90 border border-slate-700/80 shadow-xl shadow-cyan-500/30">
+          <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 px-3 py-4 md:px-0 md:py-0">
+            <div className="w-full max-w-2xl px-5 md:px-8 py-5 md:py-6 rounded-3xl bg-slate-900/90 border border-slate-700/80 shadow-xl shadow-cyan-500/30">
               <div className="flex justify-between items-center mb-4">
                 <div>
                   <div className="text-xs uppercase tracking-[0.3em] text-slate-400">
@@ -267,7 +306,7 @@ function GamePage({ playerId, roomId, onExit }) {
                   {isHost ? "你是房主，可以在全部准备后开始游戏" : "等待房主开始游戏"}
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-5 md:mb-6">
                 {(room ? room.players : []).map((id, index) => {
                   const readyIds = room && room.readyPlayerIds ? room.readyPlayerIds : []
                   const ready = readyIds.includes(id)
@@ -288,7 +327,7 @@ function GamePage({ playerId, roomId, onExit }) {
                           玩家 {id}
                           {isSelf && <span className="ml-1 text-cyan-300">（你）</span>}
                         </div>
-                        <div className="text-[11px] text-slate-400">
+                        <div className="text-[10px] md:text-[11px] text-slate-400">
                           入场顺序 {index + 1}
                           {host && <span className="ml-2 text-amber-300">房主</span>}
                         </div>
@@ -314,16 +353,16 @@ function GamePage({ playerId, roomId, onExit }) {
                       className="flex items-center justify-between px-4 py-3 rounded-2xl border border-dashed border-slate-700/80 bg-slate-900/60 text-xs text-slate-500"
                     >
                       <div>空位</div>
-                      <div className="px-3 py-1 rounded-full bg-slate-800 text-[11px]">
+                      <div className="px-3 py-1 rounded-full bg-slate-800 text-[11px] md:text-xs">
                         等待加入
                       </div>
                     </div>
                   ))}
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mt-2 md:mt-0">
                 <button
                   className={
-                    "px-5 py-2 rounded-xl text-xs font-semibold transition " +
+                    "px-5 py-2 rounded-xl text-[11px] md:text-xs font-semibold transition active:scale-[0.97] " +
                     (isReady
                       ? "bg-slate-700 text-slate-100 hover:bg-slate-600"
                       : "bg-emerald-500 text-slate-950 hover:bg-emerald-400")
@@ -335,7 +374,7 @@ function GamePage({ playerId, roomId, onExit }) {
                 </button>
                 {isHost && (
                   <button
-                    className="px-5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 hover:from-amber-300 hover:to-rose-300 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    className="px-5 py-2 rounded-xl text-[11px] md:text-xs font-semibold bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 hover:from-amber-300 hover:to-rose-300 disabled:opacity-50 disabled:cursor-not-allowed transition active:scale-[0.97]"
                     onClick={handleStartGame}
                     disabled={
                       !room ||

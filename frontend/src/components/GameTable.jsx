@@ -66,8 +66,8 @@ function GameTable({
   return (
     <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),_transparent_60%),radial-gradient(circle_at_bottom,_rgba(34,197,94,0.25),_transparent_55%)]">
       <div className="flex-1 flex flex-col">
-        <div className="flex-1 flex">
-          <div className="w-1/5 flex flex-col items-center justify-center gap-4">
+        <div className="flex-1 flex flex-col md:flex-row">
+          <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pt-3 md:pt-0">
             {leftSideSeats.map(seat => (
               <PlayerSeat
                 key={seat.seatId}
@@ -80,10 +80,10 @@ function GameTable({
               />
             ))}
           </div>
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col px-2 md:px-0">
             <div className="flex-1 flex flex-col">
-              <div className="flex-1 flex items-center justify-center">
-                <div className="w-full max-w-2xl h-64 rounded-3xl bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="flex-1 flex items-center justify-center pt-2 md:pt-0">
+                <div className="w-full max-w-md md:max-w-2xl h-52 md:h-64 rounded-3xl bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_rgba(34,197,94,0.25),_transparent_60%)]" />
                   <div className="relative z-10 flex flex-col items-center gap-4">
                     <div className="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-emerald-300">
@@ -94,7 +94,7 @@ function GameTable({
                         </span>
                       )}
                     </div>
-                    <div className="relative flex justify-center items-center w-full h-40">
+                    <div className="relative flex justify-center items-center w-full h-32 md:h-40">
                       <div className="absolute inset-12 rounded-[999px] bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.35),_transparent_70%)] blur-xl" />
             {lastCombo &&
               lastComboCards.map((item, index) => {
@@ -219,8 +219,8 @@ function GameTable({
                   </div>
                 </div>
               </div>
-              <div className="h-28 flex items-center justify-center">
-                <div className="flex gap-6">
+              <div className="h-24 md:h-28 flex items-center justify-center">
+                <div className="flex gap-2 md:gap-6">
                   {topSeats.map(seat => (
                     <PlayerSeat
                       key={seat.seatId}
@@ -236,7 +236,7 @@ function GameTable({
               </div>
             </div>
           </div>
-          <div className="w-1/5 flex flex-col items-center justify-center gap-4">
+          <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pb-3 md:pb-0">
             {rightSideSeats.map(seat => (
               <PlayerSeat
                 key={seat.seatId}
@@ -250,8 +250,8 @@ function GameTable({
             ))}
           </div>
         </div>
-        <div className="h-40 px-10 flex items-center justify-between bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
-          <div className="w-64">
+        <div className="h-40 md:h-40 px-3 md:px-10 flex items-center justify-between bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
+          <div className="w-40 md:w-64">
             <TurnInfo
               roomState={roomState}
               playerId={playerId}
@@ -266,24 +266,24 @@ function GameTable({
               onToggleCard={onToggleCard}
             />
           </div>
-          <div className="w-64 flex flex-col items-end justify-center gap-3">
+          <div className="w-32 md:w-64 flex flex-col items-end justify-center gap-2 md:gap-3 pr-1 md:pr-0">
             {canInstantWin && (
               <button
-                className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-xs font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.98] transition"
+                className="px-4 md:px-5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-[11px] md:text-xs font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.97] transition"
                 onClick={onInstantWin}
               >
                 三红十直接获胜
               </button>
             )}
             <button
-              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/50 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-emerald-400/70 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/50 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-emerald-400/70 active:scale-[0.97] transition disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={onPlay}
               disabled={!selectedCardIds.length}
             >
               出牌
             </button>
             <button
-              className="px-5 py-2 rounded-xl bg-slate-800 text-xs font-medium text-slate-200 border border-slate-600 hover:border-slate-400 hover:bg-slate-700 active:scale-[0.98] transition"
+              className="px-5 py-2 rounded-xl bg-slate-800 text-xs font-medium text-slate-200 border border-slate-600 hover:border-slate-400 hover:bg-slate-700 active:scale-[0.97] transition"
               onClick={onPass}
             >
               Pass
