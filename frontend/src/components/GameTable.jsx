@@ -57,6 +57,7 @@ function GameTable({
   const rightSideSeats = sideSeats.slice(2)
 
   const currentTurnSeatId = roomState.currentTurnSeatId
+  const passedSeatIdSet = new Set(roomState.passedSeatIds || [])
   const redTenPlayerIdSet = new Set(redTenPlayerIds || [])
 
   const lastCombo = roomState.lastCombo
@@ -75,6 +76,7 @@ function GameTable({
                 isCurrent={seat.seatId === currentTurnSeatId}
                 hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
                 hasCrown={kingPlayerId === seat.playerId}
+                isPassed={passedSeatIdSet.has(seat.seatId)}
               />
             ))}
           </div>
@@ -227,6 +229,7 @@ function GameTable({
                       isCurrent={seat.seatId === currentTurnSeatId}
                       hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
                       hasCrown={kingPlayerId === seat.playerId}
+                      isPassed={passedSeatIdSet.has(seat.seatId)}
                     />
                   ))}
                 </div>
@@ -242,13 +245,19 @@ function GameTable({
                 isCurrent={seat.seatId === currentTurnSeatId}
                 hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
                 hasCrown={kingPlayerId === seat.playerId}
+                isPassed={passedSeatIdSet.has(seat.seatId)}
               />
             ))}
           </div>
         </div>
         <div className="h-40 px-10 flex items-center justify-between bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
           <div className="w-64">
-            <TurnInfo roomState={roomState} playerId={playerId} lastEvent={lastEvent} />
+            <TurnInfo
+              roomState={roomState}
+              playerId={playerId}
+              lastEvent={lastEvent}
+              kingPlayerId={kingPlayerId}
+            />
           </div>
           <div className="flex-1 flex flex-col items-center">
             <PlayerHand

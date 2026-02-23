@@ -7,6 +7,7 @@ import {
   PlayerAction,
   PlayerId,
   RankEnum,
+  SeatId,
   SeatState,
 } from "../domain/types"
 import { startNewHand } from "../engine/gameEngine"
@@ -20,6 +21,7 @@ export interface GameRoom {
   readyPlayerIds: PlayerId[]
   gameState: GameState | null
   status: "OPEN" | "FULL" | "PLAYING"
+  lastWinnerSeatId: SeatId | null
 }
 
 export interface RoomActionResult {
@@ -52,6 +54,7 @@ export function createRoom(roomId: string): GameRoom {
     readyPlayerIds: [],
     gameState: null,
     status: "OPEN",
+    lastWinnerSeatId: null,
   }
 }
 
@@ -83,7 +86,14 @@ export function startGameInRoom(room: GameRoom): GameRoom {
   if (room.players.length !== room.maxPlayers) {
     throw new Error("Room must have maxPlayers to start game")
   }
-  const seats: SeatState[] = room.players.map((playerId, index) => {
+  const players = room.players.slice()
+  for (let i = players.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    const tmp = players[i]
+    players[i] = players[j]
+    players[j] = tmp
+  }
+  const seats: SeatState[] = players.map((playerId, index) => {
     const seatId = index + 1
     const seat: SeatState = {
       seatId,
@@ -107,8 +117,8 @@ export function startGameInRoom(room: GameRoom): GameRoom {
     deck: [],
     drawPile: [],
     campInfo: null,
-    currentTurnSeatId: null,
-    currentPlayerId: null,
+    currentTurnSeatId: seats.length > 0 ? seats[0].seatId : null,
+    currentPlayerId: seats.length > 0 ? seats[0].playerId : null,
     lastCombo: null,
     lastComboSeatId: null,
     lastPlayedCombo: null,
@@ -139,9 +149,18 @@ export function applyPlayerAction(room: GameRoom, action: PlayerAction): RoomAct
   }
   const result = handleAction(room.gameState, action)
   const nextGameState = result.accepted ? result.nextState : room.gameState
+  let nextLastWinnerSeatId = room.lastWinnerSeatId
+  if (
+    result.accepted &&
+    nextGameState.phase === "SETTLING" &&
+    nextGameState.firstFinisherSeatId
+  ) {
+    nextLastWinnerSeatId = nextGameState.firstFinisherSeatId
+  }
   const nextRoom: GameRoom = {
     ...room,
     gameState: nextGameState,
+    lastWinnerSeatId: nextLastWinnerSeatId,
   }
   return {
     room: nextRoom,
@@ -187,8 +206,12 @@ export function startNextHand(room: GameRoom): GameRoom {
     deck: [],
     drawPile: [],
     campInfo: null,
-    currentTurnSeatId: null,
-    currentPlayerId: null,
+    currentTurnSeatId:
+      room.lastWinnerSeatId !== null ? room.lastWinnerSeatId : newSeats[0]?.seatId ?? null,
+    currentPlayerId:
+      room.lastWinnerSeatId !== null
+        ? newSeats.find(seat => seat.seatId === room.lastWinnerSeatId)?.playerId ?? null
+        : newSeats[0]?.playerId ?? null,
     lastCombo: null,
     lastComboSeatId: null,
     lastPlayedCombo: null,

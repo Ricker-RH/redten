@@ -1,4 +1,4 @@
-import { Card, GameState, SeatState } from "../domain/types"
+import { Card, GameState, SeatId, SeatState } from "../domain/types"
 import { initializeDeck } from "../rules/deckRule"
 import { hasTripleRedTenInHand } from "../rules/specialAbilityRule"
 
@@ -18,7 +18,13 @@ export function startNewHand(state: GameState): GameState {
     config: state.config.deckConfig,
     rngSeed: state.handId,
   })
-  const dealtSeats = dealCards(baseSeats, deckResult.deck)
+  const startingSeatId: SeatId | null =
+    state.currentTurnSeatId && state.currentTurnSeatId > 0
+      ? state.currentTurnSeatId
+      : baseSeats.length > 0
+      ? baseSeats[0].seatId
+      : null
+  const dealtSeats = dealCards(baseSeats, deckResult.deck, startingSeatId)
   const seatsWithCamp: SeatState[] = dealtSeats.map(seat => {
     const hasRedTen = seat.handCards.some(card => card.isRedTen)
     return {
@@ -31,11 +37,10 @@ export function startNewHand(state: GameState): GameState {
     canInstantWin: hasTripleRedTenInHand(seat.handCards),
   }))
   const activeSeats = seatsWithAbility.filter(seat => !seat.isFinished)
-  const randomIndex =
-    activeSeats.length > 0
-      ? Math.floor(Math.random() * activeSeats.length)
-      : -1
-  const currentSeat = randomIndex >= 0 ? activeSeats[randomIndex] : null
+  const currentSeat =
+    startingSeatId !== null
+      ? activeSeats.find(seat => seat.seatId === startingSeatId) || activeSeats[0] || null
+      : activeSeats[0] || null
   return {
     ...state,
     stage: "PLAYING",
@@ -62,7 +67,11 @@ export function startNewHand(state: GameState): GameState {
   }
 }
 
-function dealCards(seats: SeatState[], deck: Card[]): SeatState[] {
+function dealCards(
+  seats: SeatState[],
+  deck: Card[],
+  startingSeatId: SeatId | null,
+): SeatState[] {
   const result: SeatState[] = seats.map(seat => ({
     ...seat,
     handCards: [],
@@ -70,15 +79,24 @@ function dealCards(seats: SeatState[], deck: Card[]): SeatState[] {
   if (result.length === 0) {
     return result
   }
-  const playerCount = result.length
+  const sorted = result.slice().sort((a, b) => a.seatId - b.seatId)
+  const playerCount = sorted.length
+  let startIndex = 0
+  if (startingSeatId !== null) {
+    const idx = sorted.findIndex(seat => seat.seatId === startingSeatId)
+    if (idx >= 0) {
+      startIndex = idx
+    }
+  }
   for (let i = 0; i < deck.length; i += 1) {
-    const seatIndex = i % playerCount
-    const seat = result[seatIndex]
+    const seatIndex = (startIndex + i) % playerCount
+    const seat = sorted[seatIndex]
     const card = deck[i]
-    result[seatIndex] = {
+    sorted[seatIndex] = {
       ...seat,
       handCards: seat.handCards.concat(card),
     }
   }
-  return result
+  const bySeatId = sorted.slice().sort((a, b) => a.seatId - b.seatId)
+  return bySeatId
 }

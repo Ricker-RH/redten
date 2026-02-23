@@ -1,4 +1,4 @@
-function TurnInfo({ roomState, playerId, lastEvent }) {
+function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
   if (!roomState) {
     return null
   }
@@ -16,6 +16,9 @@ function TurnInfo({ roomState, playerId, lastEvent }) {
       ? roomState.seats.find(s => s.seatId === lastEvent.seatId)
       : null
   const lastSeatLabel = lastSeat ? `玩家 ${lastSeat.seatId}` : "有人"
+  const selfSeat = roomState.seats
+    ? roomState.seats.find(s => s.playerId === playerId)
+    : null
   const eventText =
     lastEvent && lastEvent.type
       ? lastEvent.type === "PLAY_CARDS"
@@ -36,6 +39,9 @@ function TurnInfo({ roomState, playerId, lastEvent }) {
     typeof windDefaultReceiverSeatId === "number"
       ? roomState.seats.find(s => s.seatId === windDefaultReceiverSeatId)
       : null
+  const isSelfRedTen =
+    selfSeat && selfSeat.camp === "RED_TEN"
+  const isSelfKing = kingPlayerId && kingPlayerId === playerId
 
   let windText = ""
   if (windMode !== "NONE" && windSourceSeat && windDefaultSeat) {
@@ -97,8 +103,27 @@ function TurnInfo({ roomState, playerId, lastEvent }) {
         )}
         <div className="text-[11px] text-slate-400">最近事件：{eventText}</div>
         {windText && (
-          <div className="text-[11px] text-emerald-300/90 leading-relaxed">
-            {windText}
+          <div className="mt-2 rounded-xl border border-emerald-400/80 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.45),_rgba(15,23,42,0.95))] px-3 py-2 shadow-[0_0_18px_rgba(16,185,129,0.65)]">
+            <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-100/80 mb-1">
+              风阶段
+            </div>
+            <div className="text-[11px] text-emerald-50 leading-relaxed">
+              {windText}
+            </div>
+          </div>
+        )}
+        {selfSeat && (isSelfRedTen || isSelfKing) && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {isSelfRedTen && (
+              <span className="inline-flex items-center justify-center px-2 h-5 rounded-full bg-rose-500/95 text-[10px] font-semibold text-slate-50 border border-rose-200/80">
+                你：红十阵营
+              </span>
+            )}
+            {isSelfKing && (
+              <span className="inline-flex items-center justify-center px-2 h-5 rounded-full bg-amber-400 text-[10px] font-bold text-slate-950 shadow-[0_0_10px_rgba(251,191,36,0.8)]">
+                你：大皇
+              </span>
+            )}
           </div>
         )}
       </div>

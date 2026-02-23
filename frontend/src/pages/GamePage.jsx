@@ -13,6 +13,8 @@ function GamePage({ playerId, roomId, onExit }) {
   const [playHistory, setPlayHistory] = useState([])
   const [kingPlayerId, setKingPlayerId] = useState(null)
   const [redTenPlayerIds, setRedTenPlayerIds] = useState([])
+  const [showSeatDraw, setShowSeatDraw] = useState(false)
+  const [drawSeatId, setDrawSeatId] = useState(null)
   const lastGameStateRef = useRef(null)
 
   const { status, sendAction } = useGameSocket({
@@ -69,6 +71,13 @@ function GamePage({ playerId, roomId, onExit }) {
       setRoom(nextRoom)
       if (nextGameState && nextGameState.winnerId) {
         setKingPlayerId(nextGameState.winnerId)
+      }
+      if (!prevState && nextGameState && nextGameState.seats) {
+        const seat = nextGameState.seats.find(s => s.playerId === playerId)
+        if (seat) {
+          setDrawSeatId(seat.seatId)
+          setShowSeatDraw(true)
+        }
       }
       if (nextRoom && playerId) {
         const readyIds = nextRoom.readyPlayerIds || []
@@ -314,6 +323,33 @@ function GamePage({ playerId, roomId, onExit }) {
           </div>
         )}
       </main>
+      {showSeatDraw && drawSeatId && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+          <div className="w-full max-w-md px-8 py-6 rounded-3xl bg-slate-950 border border-cyan-400/70 shadow-2xl shadow-cyan-500/50">
+            <div className="text-xs uppercase tracking-[0.3em] text-cyan-300 mb-2">
+              开局抽号定座
+            </div>
+            <div className="text-lg font-semibold text-slate-50 mb-4">
+              你抽到的座位号是
+              <span className="mx-2 text-3xl font-extrabold text-emerald-400">
+                {drawSeatId}
+              </span>
+              号
+            </div>
+            <div className="mb-6 text-xs text-slate-300">
+              本局中你的座位号将保持不变，后续每局将按大皇顺序轮转起牌。
+            </div>
+            <div className="flex justify-end">
+              <button
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 active:scale-[0.98] transition"
+                onClick={() => setShowSeatDraw(false)}
+              >
+                开始对局
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {errorText && (
         <div className="fixed top-0 inset-x-0 z-50 flex justify-center mt-4 pointer-events-none">
           <div className="pointer-events-auto bg-slate-900/95 rounded-2xl border border-rose-500/70 px-6 py-3 shadow-xl shadow-rose-500/40 max-w-lg w-[90%]">

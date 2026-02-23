@@ -1,4 +1,4 @@
-function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown }) {
+function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
   const base =
     "px-3 py-2 rounded-2xl bg-slate-900/85 border border-slate-700/80 text-xs text-slate-100 min-w-[120px]"
   const stateText = seat.isFinished ? "已出完" : "出牌中"
@@ -6,7 +6,7 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown }) {
   return (
     <div
       className={
-        "flex flex-col items-center gap-1 " +
+        "relative flex flex-col items-center gap-1 " +
         (align === "left"
           ? "items-start"
           : align === "right"
@@ -51,6 +51,15 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown }) {
           </div>
         )}
       </div>
+      {isPassed && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="px-4 py-1 rounded-full bg-rose-600/90 border border-rose-200/90 shadow-[0_0_18px_rgba(248,113,113,0.95)]">
+            <span className="text-sm font-extrabold tracking-[0.2em] text-slate-50">
+              PASS
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
