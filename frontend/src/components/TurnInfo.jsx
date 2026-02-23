@@ -71,8 +71,14 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
     }
   }
 
+  const containerClass =
+    "rounded-2xl px-4 py-3 text-xs text-slate-200 border " +
+    (isSelfTurn
+      ? "bg-gradient-to-r from-emerald-900/90 via-slate-950/95 to-cyan-900/90 border-emerald-400/80 shadow-[0_0_26px_rgba(16,185,129,0.9)]"
+      : "bg-slate-900/85 border-slate-700/80")
+
   return (
-    <div className="rounded-2xl bg-slate-900/85 border border-slate-700/80 px-4 py-3 text-xs text-slate-200">
+    <div className={containerClass}>
       <div className="flex items-center justify-between mb-2">
         <div className="text-[11px] uppercase tracking-[0.28em] text-slate-400">
           Turn
@@ -87,15 +93,32 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
             <div
               className={
                 "w-2 h-2 rounded-full " +
-                (isSelfTurn ? "bg-emerald-400" : "bg-slate-500")
+                (isSelfTurn
+                  ? "bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.95)] animate-pulse"
+                  : "bg-slate-500")
               }
             />
             <div className="text-xs">
-              当前行动玩家
-              <span className="mx-1 font-medium text-emerald-300">
-                {isSelfTurn ? "你" : currentSeat.playerId}
-              </span>
-              座位 {currentSeat.seatId}
+              {isSelfTurn ? (
+                <>
+                  <span className="mr-1 text-emerald-300 font-semibold">
+                    轮到你出牌
+                  </span>
+                  <span className="text-slate-300">
+                    （座位 {currentSeat.seatId}）
+                  </span>
+                </>
+              ) : (
+                <>
+                  当前行动玩家
+                  <span className="mx-1 font-medium text-emerald-300">
+                    玩家 {currentSeat.seatId}
+                  </span>
+                  <span className="text-slate-300">
+                    （ID {currentSeat.playerId}）
+                  </span>
+                </>
+              )}
             </div>
           </div>
         ) : (

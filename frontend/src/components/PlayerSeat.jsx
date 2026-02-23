@@ -18,7 +18,9 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
         className={
           base +
           " flex items-center justify-between gap-2" +
-          (isCurrent ? " shadow-glow border-cyan-400/80" : "")
+          (isCurrent
+            ? " shadow-[0_0_22px_rgba(34,211,238,0.95)] border-cyan-300/90 ring-2 ring-cyan-300/70 scale-[1.02] transition-transform"
+            : "")
         }
       >
         <div className="flex items-center gap-2">
@@ -51,6 +53,11 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
           </div>
         )}
       </div>
+      {isCurrent && (
+        <div className="mt-1 px-3 py-0.5 rounded-full bg-cyan-500 text-[10px] font-semibold text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.95)] tracking-[0.22em]">
+          当前出牌
+        </div>
+      )}
       {isPassed && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="px-4 py-1 rounded-full bg-rose-600/90 border border-rose-200/90 shadow-[0_0_18px_rgba(248,113,113,0.95)]">
