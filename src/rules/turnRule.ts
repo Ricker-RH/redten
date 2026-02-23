@@ -91,7 +91,7 @@ export function handleAction(state: GameState, action: PlayerAction): HandleActi
       lastPlayedCombo: null,
       lastPlayedPlayerId: null,
       firstFinisherSeatId: null,
-      winnerId: state.winnerId,
+      winnerId: settlement.winnerId,
       windSourceSeatId: null,
       windDefaultReceiverSeatId: null,
       windMode: "NONE",
@@ -292,29 +292,43 @@ function handlePlayCards(state: GameState, action: PlayerAction): HandleActionRe
     }
     const activeSeats = seats.filter(s => !s.isFinished)
     if (activeSeats.length > 0) {
-      const hasRedTenInHand = seats.some(seat =>
-        seat.handCards.some(card => card.isRedTen),
-      )
-      const teamsConfirmed = !hasRedTenInHand
-      const sourceSeatId = finishedSeat.seatId
-      let defaultReceiver: SeatState | null = null
-      if (teamsConfirmed && finishedSeat.camp) {
-        const sameCampSeats = seats.filter(
-          s => !s.isFinished && s.camp === finishedSeat.camp && s.seatId !== sourceSeatId,
-        )
-        if (sameCampSeats.length > 0) {
-          const sorted = sameCampSeats.slice().sort((a, b) => a.seatId - b.seatId)
-          const after = sorted.find(s => s.seatId > sourceSeatId)
-          defaultReceiver = after || sorted[0]
+      const camps = ["RED_TEN", "NORMAL"] as const
+      const hasCampFinished = camps.some(camp => {
+        const campSeats = seats.filter(s => s.camp === camp)
+        if (campSeats.length === 0) {
+          return false
         }
+        return campSeats.every(s => s.isFinished)
+      })
+      if (hasCampFinished) {
+        phase = "SETTLING"
+      } else {
+        const hasRedTenInHand = seats.some(seat =>
+          seat.handCards.some(card => card.isRedTen),
+        )
+        const teamsConfirmed = !hasRedTenInHand
+        const sourceSeatId = finishedSeat.seatId
+        let defaultReceiver: SeatState | null = null
+        if (teamsConfirmed && finishedSeat.camp) {
+          const sameCampSeats = seats.filter(
+            s => !s.isFinished && s.camp === finishedSeat.camp && s.seatId !== sourceSeatId,
+          )
+          if (sameCampSeats.length > 0) {
+            const sorted = sameCampSeats.slice().sort((a, b) => a.seatId - b.seatId)
+            const after = sorted.find(s => s.seatId > sourceSeatId)
+            defaultReceiver = after || sorted[0]
+          }
+        }
+        if (!defaultReceiver) {
+          const nextActive = findNextActiveSeat(seats, sourceSeatId)
+          defaultReceiver = nextActive
+        }
+        windSourceSeatId = sourceSeatId
+        windDefaultReceiverSeatId = defaultReceiver ? defaultReceiver.seatId : null
+        windMode = teamsConfirmed ? "CONFIRMED" : "UNCONFIRMED"
       }
-      if (!defaultReceiver) {
-        const nextActive = findNextActiveSeat(seats, sourceSeatId)
-        defaultReceiver = nextActive
-      }
-      windSourceSeatId = sourceSeatId
-      windDefaultReceiverSeatId = defaultReceiver ? defaultReceiver.seatId : null
-      windMode = teamsConfirmed ? "CONFIRMED" : "UNCONFIRMED"
+    } else {
+      phase = "SETTLING"
     }
   }
   let nextTurn: SeatState | null = null
