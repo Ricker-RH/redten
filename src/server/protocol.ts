@@ -1,5 +1,6 @@
 import { CardId, GameEvent, PlayerActionType } from "../domain/types"
 import { GameRoom } from "../room/gameRoom"
+import { SettlementResult } from "../rules/settlementRule"
 
 export const MESSAGE_TYPES = {
   JOIN_ROOM: "JOIN_ROOM",
@@ -8,6 +9,8 @@ export const MESSAGE_TYPES = {
   PING: "PING",
   READY: "READY",
   START_GAME: "START_GAME",
+  START_NEXT_HAND: "START_NEXT_HAND",
+  PLAYER_ACTION_RESULT: "PLAYER_ACTION_RESULT",
   PONG: "PONG",
   GAME_EVENTS: "GAME_EVENTS",
   ROOM_SNAPSHOT: "ROOM_SNAPSHOT",
@@ -20,6 +23,7 @@ export type ClientMessage =
   | ReconnectMessage
   | ReadyMessage
   | StartGameMessage
+  | StartNextHandMessage
   | PingMessage
 
 export interface JoinRoomMessage {
@@ -55,6 +59,26 @@ export interface StartGameMessage {
   roomId: string
 }
 
+export interface StartNextHandMessage {
+  type: typeof MESSAGE_TYPES.START_NEXT_HAND
+  roomId: string
+}
+
+export interface PlayerActionResultPayload {
+  accepted: boolean
+  action: {
+    type: PlayerActionType
+  }
+  settlement?: SettlementResult
+}
+
+export interface PlayerActionResultMessage {
+  type: typeof MESSAGE_TYPES.PLAYER_ACTION_RESULT
+  roomId: string
+  playerId: string
+  payload: PlayerActionResultPayload
+}
+
 export interface PingMessage {
   type: typeof MESSAGE_TYPES.PING
 }
@@ -68,6 +92,7 @@ export type ServerMessage =
   | RoomSnapshotMessage
   | ErrorMessage
   | PongMessage
+  | PlayerActionResultMessage
 
 export interface GameEventsMessage {
   type: typeof MESSAGE_TYPES.GAME_EVENTS

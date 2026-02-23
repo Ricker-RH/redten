@@ -1,4 +1,5 @@
-import { GameEvent, PlayerAction, PlayerId } from "../domain/types"
+import { GameEvent, PlayerAction, PlayerActionType, PlayerId } from "../domain/types"
+import { SettlementResult } from "../rules/settlementRule"
 import {
   GameRoom,
   RoomActionResult,
@@ -6,6 +7,7 @@ import {
   createRoom,
   joinRoom,
   startGameInRoom,
+  startNextHand as startNextHandInRoom,
 } from "../room/gameRoom"
 import {
   ClientMessage,
@@ -18,6 +20,7 @@ import {
   ReconnectMessage,
   RoomSnapshotMessage,
   StartGameMessage,
+  StartNextHandMessage,
 } from "./protocol"
 import { Logger } from "./logger"
 
@@ -278,7 +281,54 @@ class GameGateway {
     }
   }
 
-  applyPlayerAction(socket: WebSocketLike, message: PlayerActionMessage): { roomId: string; events: GameEvent[]; playerId: PlayerId; accepted: boolean } | null {
+  startNextHand(socket: WebSocketLike, message: StartNextHandMessage): { room: GameRoom; roomId: string; playerId: PlayerId } | { errorCode: string; errorMessage: string } {
+    const playerId = this.connections.getPlayerIdForSocket(socket)
+    if (!playerId) {
+      return {
+        errorCode: "PLAYER_NOT_BOUND",
+        errorMessage: "Player not bound to socket",
+      }
+    }
+    const roomId = message.roomId
+    const room = this.rooms.getRoom(roomId)
+    if (!room) {
+      return {
+        errorCode: "ROOM_NOT_FOUND",
+        errorMessage: "Room not found",
+      }
+    }
+    if (room.hostId !== playerId) {
+      return {
+        errorCode: "NOT_HOST",
+        errorMessage: "Only host can start next hand",
+      }
+    }
+    if (!room.gameState || room.gameState.phase !== "WAITING") {
+      return {
+        errorCode: "GAME_NOT_FINISHED",
+        errorMessage: "Game is not finished yet",
+      }
+    }
+    const nextRoom = startNextHandInRoom(room)
+    this.rooms.setRoom(roomId, nextRoom)
+    return {
+      room: nextRoom,
+      roomId,
+      playerId,
+    }
+  }
+
+  applyPlayerAction(
+    socket: WebSocketLike,
+    message: PlayerActionMessage,
+  ): {
+    roomId: string
+    events: GameEvent[]
+    playerId: PlayerId
+    accepted: boolean
+    actionType: PlayerActionType
+    settlement: SettlementResult | null
+  } | null {
     const playerId = this.connections.getPlayerIdForSocket(socket)
     if (!playerId) {
       return null
@@ -306,6 +356,8 @@ class GameGateway {
       events: result.events,
       playerId,
       accepted: result.accepted,
+      actionType: playerAction.type,
+      settlement: result.settlement,
     }
   }
 
@@ -399,6 +451,8 @@ export class RoomManager {
         this.handleReady(socket, message)
       } else if (message.type === MESSAGE_TYPES.START_GAME) {
         this.handleStartGame(socket, message)
+      } else if (message.type === MESSAGE_TYPES.START_NEXT_HAND) {
+        this.handleStartNextHand(socket, message)
       }
     } catch (err) {
       const details =
@@ -512,6 +566,13 @@ export class RoomManager {
       this.broadcastRoomSnapshot(result.roomId, room)
     }
     this.broadcastEvents(result.roomId, result.events)
+    this.broadcastActionResult(
+      result.roomId,
+      result.playerId,
+      result.actionType,
+      result.accepted,
+      result.settlement,
+    )
     this.logger.log({
       level: "INFO",
       timestamp: now,
@@ -646,6 +707,36 @@ export class RoomManager {
     })
   }
 
+  private handleStartNextHand(socket: WebSocketLike, message: StartNextHandMessage): void {
+    const now = Date.now()
+    const result = this.gateway.startNextHand(socket, message)
+    if ("errorCode" in result) {
+      this.logger.log({
+        level: "ERROR",
+        timestamp: now,
+        message: "handleStartNextHand",
+        roomId: message.roomId,
+        messageType: MESSAGE_TYPES.START_NEXT_HAND,
+        result: "error",
+        details: {
+          code: result.errorCode,
+        },
+      })
+      this.sendError(socket, result.errorCode, result.errorMessage)
+      return
+    }
+    this.broadcastRoomSnapshot(result.roomId, result.room)
+    this.logger.log({
+      level: "INFO",
+      timestamp: now,
+      message: "handleStartNextHand",
+      roomId: result.roomId,
+      playerId: result.playerId,
+      messageType: MESSAGE_TYPES.START_NEXT_HAND,
+      result: "success",
+    })
+  }
+
   private broadcastEvents(roomId: string, events: GameEvent[]): void {
     if (events.length === 0) {
       return
@@ -682,6 +773,35 @@ export class RoomManager {
         delivered,
       },
     })
+  }
+
+  private broadcastActionResult(
+    roomId: string,
+    playerId: PlayerId,
+    actionType: PlayerActionType,
+    accepted: boolean,
+    settlement: SettlementResult | null,
+  ): void {
+    const message = {
+      type: MESSAGE_TYPES.PLAYER_ACTION_RESULT,
+      roomId,
+      playerId,
+      payload: {
+        accepted,
+        action: {
+          type: actionType,
+        },
+        settlement: settlement || undefined,
+      },
+    }
+    const payload = JSON.stringify(message)
+    const players = this.connections.getRoomPlayers(roomId)
+    for (const pid of players) {
+      const connectionInfo = this.connections.getConnection(pid)
+      if (connectionInfo) {
+        connectionInfo.socket.send(payload)
+      }
+    }
   }
 
   private appendEventsToRoomLog(roomId: string, events: GameEvent[]): void {

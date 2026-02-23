@@ -8,6 +8,7 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
     ? roomState.seats.find(s => s.seatId === currentSeatId)
     : null
   const stageText = roomState.stage || roomState.phase || ""
+  const winnerId = roomState.winnerId
 
   const isSelfTurn = currentSeat && currentSeat.playerId === playerId
 
@@ -88,7 +89,14 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
         </div>
       </div>
       <div className="space-y-1">
-        {currentSeat ? (
+        {winnerId && roomState.phase === "WAITING" ? (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.9)]" />
+            <div className="text-xs text-amber-100">
+              本局已结束，胜者 ID {winnerId}，等待房主开始下一局
+            </div>
+          </div>
+        ) : currentSeat ? (
           <div className="flex items-center gap-2">
             <div
               className={

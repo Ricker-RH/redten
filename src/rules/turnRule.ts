@@ -82,6 +82,7 @@ export function handleAction(state: GameState, action: PlayerAction): HandleActi
     const nextState: GameState = {
       ...state,
       seats: updatedSeats,
+      stage: "FINISHED",
       phase: "WAITING",
       currentTurnSeatId: null,
       currentPlayerId: null,
@@ -90,7 +91,7 @@ export function handleAction(state: GameState, action: PlayerAction): HandleActi
       lastPlayedCombo: null,
       lastPlayedPlayerId: null,
       firstFinisherSeatId: null,
-      winnerId: null,
+      winnerId: state.winnerId,
       windSourceSeatId: null,
       windDefaultReceiverSeatId: null,
       windMode: "NONE",
@@ -184,11 +185,15 @@ function handleInstantWin(state: GameState, action: PlayerAction): HandleActionR
       canInstantWin: false,
     }
   })
+  const finishedSeat = seats.find(
+    seat => seat.playerId === action.playerId && seat.seatId === action.seatId,
+  )
   const nextState: GameState = {
     ...state,
     seats,
     phase: "SETTLING",
     winnerId: action.playerId,
+    firstFinisherSeatId: finishedSeat ? finishedSeat.seatId : state.firstFinisherSeatId,
   }
   const event: GameEvent = {
     eventId: 0,

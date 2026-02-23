@@ -12,6 +12,7 @@ import {
 } from "../domain/types"
 import { startNewHand } from "../engine/gameEngine"
 import { handleAction } from "../rules/turnRule"
+import { calculateSettlement, SettlementResult } from "../rules/settlementRule"
 
 export interface GameRoom {
   roomId: string
@@ -28,6 +29,7 @@ export interface RoomActionResult {
   room: GameRoom
   events: GameEvent[]
   accepted: boolean
+  settlement: SettlementResult | null
 }
 
 const defaultConfig: GameConfig = {
@@ -145,20 +147,19 @@ export function applyPlayerAction(room: GameRoom, action: PlayerAction): RoomAct
       room,
       events: [],
       accepted: false,
+      settlement: null,
     }
   }
   const firstResult = handleAction(room.gameState, action)
   let nextGameState = firstResult.accepted ? firstResult.nextState : room.gameState
   let events: GameEvent[] = firstResult.events
   let nextLastWinnerSeatId = room.lastWinnerSeatId
-  if (
-    firstResult.accepted &&
-    nextGameState.phase === "SETTLING" &&
-    nextGameState.firstFinisherSeatId
-  ) {
-    nextLastWinnerSeatId = nextGameState.firstFinisherSeatId
-  }
+  let settlement: SettlementResult | null = null
   if (firstResult.accepted && nextGameState.phase === "SETTLING") {
+    if (nextGameState.firstFinisherSeatId) {
+      nextLastWinnerSeatId = nextGameState.firstFinisherSeatId
+    }
+    settlement = calculateSettlement(nextGameState)
     const settleResult = handleAction(nextGameState, {
       ...action,
       cardIds: [],
@@ -180,6 +181,7 @@ export function applyPlayerAction(room: GameRoom, action: PlayerAction): RoomAct
     room: nextRoom,
     events,
     accepted: firstResult.accepted,
+    settlement,
   }
 }
 

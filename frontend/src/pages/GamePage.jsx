@@ -184,6 +184,16 @@ function GamePage({ playerId, roomId, onExit }) {
     })
   }
 
+  const handleStartNextHand = () => {
+    if (!roomId) {
+      return
+    }
+    sendAction({
+      type: "START_NEXT_HAND",
+      roomId
+    })
+  }
+
   useEffect(() => {
     if (!showSeatDraw || !drawSeatId) {
       return
@@ -443,23 +453,101 @@ function GamePage({ playerId, roomId, onExit }) {
         </div>
       )}
       {actionResult && actionResult.settlement && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/60">
-          <div className="bg-slate-950 rounded-3xl border border-amber-400/60 px-10 py-8 shadow-2xl shadow-amber-400/50 max-w-lg w-full">
-            <div className="text-amber-300 font-semibold mb-4 text-base">本局结算</div>
-            <div className="max-h-72 overflow-y-auto text-sm text-slate-100">
-              <pre className="whitespace-pre-wrap text-xs text-slate-200">
-                {JSON.stringify(actionResult.settlement, null, 2)}
-              </pre>
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
+          <div className="bg-slate-950 rounded-3xl border border-amber-400/70 px-6 md:px-10 py-6 md:py-8 shadow-2xl shadow-amber-400/50 max-w-lg w-[92%] md:w-full">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <div className="text-[11px] uppercase tracking-[0.3em] text-amber-300/90 mb-1">
+                  Result
+                </div>
+                <div className="text-base md:text-lg font-semibold text-amber-200">
+                  本局结算
+                </div>
+              </div>
+              {gameState && gameState.winnerId && (
+                <div className="px-3 py-1.5 rounded-full bg-amber-400 text-[11px] font-semibold text-slate-950 shadow-[0_0_18px_rgba(251,191,36,0.7)]">
+                  胜者 ID {gameState.winnerId}
+                </div>
+              )}
             </div>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="max-h-72 overflow-y-auto text-xs md:text-sm text-slate-100 rounded-2xl bg-slate-900/80 border border-slate-700/80 px-4 py-3">
+              {gameState && gameState.seats && (
+                <div className="space-y-2">
+                  {gameState.seats.map(seat => {
+                    const playerSettlement =
+                      actionResult.settlement.playerResults.find(
+                        it => it.playerId === seat.playerId,
+                      ) || null
+                    const delta = playerSettlement ? playerSettlement.scoreDelta : 0
+                    const total = playerSettlement ? playerSettlement.totalScore : seat.totalScore
+                    const isWinner =
+                      actionResult.settlement.winnerId &&
+                      actionResult.settlement.winnerId === seat.playerId
+                    const isSelf = playerId === seat.playerId
+                    return (
+                      <div
+                        key={seat.seatId}
+                        className={
+                          "flex items-center justify-between px-2.5 py-1.5 rounded-xl border " +
+                          (isWinner
+                            ? "border-amber-400/90 bg-amber-500/10"
+                            : "border-slate-700/80 bg-slate-900/70")
+                        }
+                      >
+                        <div className="flex flex-col">
+                          <div className="text-xs md:text-sm text-slate-50">
+                            座位 {seat.seatId} · 玩家 {seat.playerId}
+                            {isSelf && <span className="ml-1 text-cyan-300">(你)</span>}
+                            {isWinner && (
+                              <span className="ml-2 px-2 py-0.5 rounded-full bg-amber-400 text-[10px] font-semibold text-slate-950">
+                                胜者
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-300">
+                            本局{" "}
+                            <span
+                              className={
+                                delta > 0
+                                  ? "text-emerald-300 font-semibold"
+                                  : delta < 0
+                                  ? "text-rose-300 font-semibold"
+                                  : "text-slate-200"
+                              }
+                            >
+                              {delta > 0 ? `+${delta}` : delta}
+                            </span>
+                            ，累计{" "}
+                            <span className="text-amber-200 font-semibold">{total}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="mt-5 flex flex-wrap justify-end gap-3">
               <button
-                className="px-4 py-2 rounded-xl bg-slate-800 text-xs text-slate-200 hover:bg-slate-700 transition"
+                className="px-4 py-2 rounded-xl bg-slate-800 text-[11px] md:text-xs text-slate-200 hover:bg-slate-700 transition"
                 onClick={() => setActionResult(null)}
               >
                 继续观战
               </button>
+              {isHost && (
+                <button
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition"
+                  onClick={() => {
+                    setActionResult(null)
+                    handleStartNextHand()
+                  }}
+                  disabled={!gameState || gameState.phase !== "WAITING"}
+                >
+                  开始下一局
+                </button>
+              )}
               <button
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-xs font-semibold text-slate-950 hover:from-amber-300 hover:to-rose-300 transition"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-amber-300 hover:to-rose-300 transition"
                 onClick={() => {
                   setActionResult(null)
                   onExit()
