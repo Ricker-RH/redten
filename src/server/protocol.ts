@@ -15,6 +15,7 @@ export const MESSAGE_TYPES = {
   GAME_EVENTS: "GAME_EVENTS",
   ROOM_SNAPSHOT: "ROOM_SNAPSHOT",
   CHAT: "CHAT",
+  VOICE_CHAT: "VOICE_CHAT",
   ERROR: "ERROR",
 } as const
 
@@ -27,6 +28,7 @@ export type ClientMessage =
   | StartNextHandMessage
   | PingMessage
   | ChatMessage
+  | VoiceChatMessage
 
 export interface JoinRoomMessage {
   type: typeof MESSAGE_TYPES.JOIN_ROOM
@@ -91,6 +93,14 @@ export interface ChatMessage {
   text: string
 }
 
+export interface VoiceChatMessage {
+  type: typeof MESSAGE_TYPES.VOICE_CHAT
+  roomId: string
+  audio: string
+  mimeType: string
+  durationMs: number
+}
+
 export interface PongMessage {
   type: typeof MESSAGE_TYPES.PONG
 }
@@ -102,6 +112,7 @@ export type ServerMessage =
   | PongMessage
   | PlayerActionResultMessage
   | ChatBroadcastMessage
+  | VoiceChatBroadcastMessage
 
 export interface GameEventsMessage {
   type: typeof MESSAGE_TYPES.GAME_EVENTS
@@ -126,5 +137,15 @@ export interface ChatBroadcastMessage {
   roomId: string
   playerId: string
   text: string
+  timestamp: number
+}
+
+export interface VoiceChatBroadcastMessage {
+  type: typeof MESSAGE_TYPES.VOICE_CHAT
+  roomId: string
+  playerId: string
+  audio: string
+  mimeType: string
+  durationMs: number
   timestamp: number
 }

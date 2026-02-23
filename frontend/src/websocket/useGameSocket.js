@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000"
 
-function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, onChat, onError }) {
+function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, onChat, onVoiceChat, onError }) {
   const [status, setStatus] = useState("connecting")
   const socketRef = useRef(null)
   const reconnectRef = useRef({ shouldReconnect: true, lastRoomId: roomId })
@@ -61,6 +61,17 @@ function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, 
               roomId: data.roomId,
               playerId: data.playerId,
               text: data.text,
+              timestamp: data.timestamp
+            })
+          }
+        } else if (data.type === "VOICE_CHAT") {
+          if (onVoiceChat) {
+            onVoiceChat({
+              roomId: data.roomId,
+              playerId: data.playerId,
+              audio: data.audio,
+              mimeType: data.mimeType,
+              durationMs: data.durationMs,
               timestamp: data.timestamp
             })
           }

@@ -22,6 +22,12 @@ function GamePage({ playerId, roomId, onExit }) {
   const [chatMessages, setChatMessages] = useState([])
   const [chatInput, setChatInput] = useState("")
   const lastGameStateRef = useRef(null)
+  const audioContextRef = useRef(null)
+  const [voiceMessages, setVoiceMessages] = useState([])
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const recordedChunksRef = useRef([])
+  const recordingStartRef = useRef(0)
 
   const { status, sendAction } = useGameSocket({
     playerId,
@@ -121,6 +127,13 @@ function GamePage({ playerId, roomId, onExit }) {
         return merged.slice(-limit)
       })
     },
+    onVoiceChat: msg => {
+      setVoiceMessages(prev => {
+        const merged = prev.concat(msg)
+        const limit = 50
+        return merged.slice(-limit)
+      })
+    },
     onError: msg => {
       setErrorText(msg)
     }
@@ -136,6 +149,10 @@ function GamePage({ playerId, roomId, onExit }) {
     room && room.players && hostId
       ? room.players.filter(id => id !== hostId).every(id => readyIds.includes(id))
       : false
+
+  const mergedMessages = [...chatMessages.map(msg => ({ ...msg, kind: "text" })), ...voiceMessages.map(msg => ({ ...msg, kind: "voice" }))].sort(
+    (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+  )
 
   const handleToggleCard = cardId => {
     setSelectedCardIds(prev =>
@@ -229,6 +246,83 @@ function GamePage({ playerId, roomId, onExit }) {
     setChatInput("")
   }
 
+  const handlePlayVoice = msg => {
+    if (!msg || !msg.audio) {
+      return
+    }
+    const mimeType = msg.mimeType || "audio/webm"
+    const prefix = `data:${mimeType};base64,`
+    const audio = new Audio(prefix + msg.audio)
+    audio.play().catch(() => {})
+  }
+
+  const handleToggleRecording = async () => {
+    if (isRecording) {
+      const recorder = mediaRecorderRef.current
+      if (recorder && recorder.state !== "inactive") {
+        recorder.stop()
+      }
+      return
+    }
+    if (status !== "connected") {
+      return
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setErrorText("当前浏览器不支持语音聊天")
+      return
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      recordedChunksRef.current = []
+      const mimeType = "audio/webm"
+      const recorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = recorder
+      recordingStartRef.current = Date.now()
+      recorder.ondataavailable = event => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data)
+        }
+      }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop())
+        setIsRecording(false)
+        const durationMs = Date.now() - recordingStartRef.current
+        if (!recordedChunksRef.current.length) {
+          return
+        }
+        const blob = new Blob(recordedChunksRef.current, { type: mimeType })
+        if (blob.size === 0) {
+          return
+        }
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          const result = reader.result
+          if (typeof result !== "string") {
+            return
+          }
+          const commaIndex = result.indexOf(",")
+          const base64 = commaIndex >= 0 ? result.slice(commaIndex + 1) : ""
+          if (!base64 || !roomId) {
+            return
+          }
+          const safeDuration = durationMs > 0 ? durationMs : 0
+          sendAction({
+            type: "VOICE_CHAT",
+            roomId,
+            audio: base64,
+            mimeType,
+            durationMs: safeDuration
+          })
+        }
+        reader.readAsDataURL(blob)
+      }
+      recorder.start()
+      setIsRecording(true)
+    } catch {
+      setErrorText("无法获取麦克风权限，请检查浏览器设置")
+    }
+  }
+
   useEffect(() => {
     if (!showSeatDraw || !drawSeatId) {
       return
@@ -258,21 +352,53 @@ function GamePage({ playerId, roomId, onExit }) {
     if (!enableSound || !lastActionType) {
       return
     }
-    let src = ""
-    if (lastActionType === "PLAY_CARDS") {
-      src =
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
-    } else if (lastActionType === "PASS") {
-      src =
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
-    } else if (lastActionType === "INSTANT_WIN") {
-      src =
-        "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass) {
+      return
     }
-    if (src) {
-      const audio = new Audio(src)
-      audio.volume = 0.4
-      audio.play().catch(() => {})
+    let ctx = audioContextRef.current
+    if (!ctx) {
+      ctx = new AudioContextClass()
+      audioContextRef.current = ctx
+    }
+    const now = ctx.currentTime
+    const createTone = (frequency, duration, volume) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = "square"
+      osc.frequency.setValueAtTime(frequency, now)
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(volume, now + 0.01)
+      gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + duration + 0.02)
+    }
+    if (lastActionType === "PLAY_CARDS") {
+      createTone(320, 0.12, 0.4)
+    } else if (lastActionType === "PASS") {
+      createTone(180, 0.16, 0.35)
+    } else if (lastActionType === "INSTANT_WIN") {
+      createTone(420, 0.16, 0.4)
+      setTimeout(() => {
+        const ctxRef = audioContextRef.current
+        if (!ctxRef) {
+          return
+        }
+        const now2 = ctxRef.currentTime
+        const osc2 = ctxRef.createOscillator()
+        const gain2 = ctxRef.createGain()
+        osc2.type = "triangle"
+        osc2.frequency.setValueAtTime(620, now2)
+        gain2.gain.setValueAtTime(0, now2)
+        gain2.gain.linearRampToValueAtTime(0.45, now2 + 0.02)
+        gain2.gain.exponentialRampToValueAtTime(0.001, now2 + 0.22)
+        osc2.connect(gain2)
+        gain2.connect(ctxRef.destination)
+        osc2.start(now2)
+        osc2.stop(now2 + 0.24)
+      }, 80)
     }
   }, [enableSound, lastActionType])
 
@@ -448,10 +574,10 @@ function GamePage({ playerId, roomId, onExit }) {
               </div>
             </div>
             <div className="max-h-40 md:max-h-52 overflow-y-auto px-3 py-2 space-y-1.5 text-[11px]">
-              {chatMessages.length === 0 && (
+              {mergedMessages.length === 0 && (
                 <div className="text-slate-500">暂时没有聊天内容，可以先打个招呼。</div>
               )}
-              {chatMessages.map((msg, index) => {
+              {mergedMessages.map((msg, index) => {
                 const isSelf = msg.playerId === playerId
                 const timeText = msg.timestamp
                   ? new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
@@ -484,9 +610,22 @@ function GamePage({ playerId, roomId, onExit }) {
                             <span className="text-[9px] text-slate-500">{timeText}</span>
                           )}
                         </div>
-                        <div className="text-[11px] break-words whitespace-pre-wrap">
-                          {msg.text}
-                        </div>
+                          <div className="text-[11px] break-words whitespace-pre-wrap">
+                            {msg.kind === "text" ? (
+                              msg.text
+                            ) : (
+                              <button
+                                type="button"
+                                className="px-2 py-0.5 mt-0.5 rounded-full bg-cyan-500/15 text-cyan-200 border border-cyan-400/70 text-[10px] hover:bg-cyan-500/25"
+                                onClick={() => handlePlayVoice(msg)}
+                              >
+                                语音消息
+                                {msg.durationMs
+                                  ? ` · ${Math.max(1, Math.round(msg.durationMs / 1000))}秒`
+                                  : ""}
+                              </button>
+                            )}
+                          </div>
                       </div>
                     </div>
                   </div>
@@ -494,6 +633,18 @@ function GamePage({ playerId, roomId, onExit }) {
               })}
             </div>
             <div className="px-3 py-2 border-t border-slate-700 flex items-center gap-2">
+                <button
+                  className={
+                    "px-2.5 py-1.5 rounded-xl border text-[10px] font-medium " +
+                    (isRecording
+                      ? "border-rose-400/80 bg-rose-500/15 text-rose-200"
+                      : "border-slate-600 bg-slate-800 text-slate-200")
+                  }
+                  onClick={handleToggleRecording}
+                  disabled={status !== "connected"}
+                >
+                  {isRecording ? "录音中…" : "语音"}
+                </button>
               <input
                 className="flex-1 rounded-xl bg-slate-800 border border-slate-600 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
                 placeholder="输入聊天内容，按回车发送"

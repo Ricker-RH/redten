@@ -32,6 +32,8 @@ import {
   RoomSnapshotMessage,
   StartGameMessage,
   StartNextHandMessage,
+  VoiceChatBroadcastMessage,
+  VoiceChatMessage,
 } from "./protocol"
 import { Logger } from "./logger"
 
@@ -457,6 +459,48 @@ class GameGateway {
     }
   }
 
+  sendVoiceChat(socket: WebSocketLike, message: VoiceChatMessage): { roomId: string; playerId: PlayerId; audio: string; mimeType: string; durationMs: number; timestamp: number } | { errorCode: string; errorMessage: string } {
+    const playerId = this.connections.getPlayerIdForSocket(socket)
+    if (!playerId) {
+      return {
+        errorCode: "PLAYER_NOT_BOUND",
+        errorMessage: "Player not bound to socket",
+      }
+    }
+    const roomId = message.roomId
+    const room = this.rooms.getRoom(roomId)
+    if (!room) {
+      return {
+        errorCode: "ROOM_NOT_FOUND",
+        errorMessage: "Room not found",
+      }
+    }
+    if (!room.players.includes(playerId)) {
+      return {
+        errorCode: "PLAYER_NOT_IN_ROOM",
+        errorMessage: "Player not in room",
+      }
+    }
+    const audio = (message.audio || "").slice(0, 400000)
+    const mimeType = message.mimeType || "audio/webm"
+    const durationMs = typeof message.durationMs === "number" && message.durationMs > 0 ? message.durationMs : 0
+    if (!audio) {
+      return {
+        errorCode: "EMPTY_AUDIO",
+        errorMessage: "Empty audio data",
+      }
+    }
+    const timestamp = Date.now()
+    return {
+      roomId,
+      playerId,
+      audio,
+      mimeType,
+      durationMs,
+      timestamp,
+    }
+  }
+
 }
 
 export class RoomManager {
@@ -530,6 +574,8 @@ export class RoomManager {
         this.handleStartNextHand(socket, message)
       } else if (message.type === MESSAGE_TYPES.CHAT) {
         this.handleChat(socket, message)
+      } else if (message.type === MESSAGE_TYPES.VOICE_CHAT) {
+        this.handleVoiceChat(socket, message)
       }
     } catch (err) {
       const details =
@@ -727,6 +773,76 @@ export class RoomManager {
     })
   }
 
+  private handleChat(socket: WebSocketLike, message: ChatMessage): void {
+    const now = Date.now()
+    const result = this.gateway.sendChat(socket, message)
+    if ("errorCode" in result) {
+      this.logger.log({
+        level: "ERROR",
+        timestamp: now,
+        message: "handleChat",
+        roomId: message.roomId,
+        messageType: MESSAGE_TYPES.CHAT,
+        result: "error",
+        details: {
+          code: result.errorCode,
+        },
+      })
+      this.sendError(socket, result.errorCode, result.errorMessage)
+      return
+    }
+    this.broadcastChat(result.roomId, result.playerId, result.text, result.timestamp)
+    this.logger.log({
+      level: "INFO",
+      timestamp: now,
+      message: "handleChat",
+      roomId: result.roomId,
+      playerId: result.playerId,
+      messageType: MESSAGE_TYPES.CHAT,
+      result: "success",
+    })
+  }
+
+  private handleVoiceChat(socket: WebSocketLike, message: VoiceChatMessage): void {
+    const now = Date.now()
+    const result = this.gateway.sendVoiceChat(socket, message)
+    if ("errorCode" in result) {
+      this.logger.log({
+        level: "ERROR",
+        timestamp: now,
+        message: "handleVoiceChat",
+        roomId: message.roomId,
+        messageType: MESSAGE_TYPES.VOICE_CHAT,
+        result: "error",
+        details: {
+          code: result.errorCode,
+        },
+      })
+      this.sendError(socket, result.errorCode, result.errorMessage)
+      return
+    }
+    this.broadcastVoiceChat(
+      result.roomId,
+      result.playerId,
+      result.audio,
+      result.mimeType,
+      result.durationMs,
+      result.timestamp,
+    )
+    this.logger.log({
+      level: "INFO",
+      timestamp: now,
+      message: "handleVoiceChat",
+      roomId: result.roomId,
+      playerId: result.playerId,
+      messageType: MESSAGE_TYPES.VOICE_CHAT,
+      result: "success",
+      details: {
+        durationMs: result.durationMs,
+      },
+    })
+  }
+
   private handleReady(socket: WebSocketLike, message: ReadyMessage): void {
     const now = Date.now()
     const result = this.gateway.toggleReady(socket, message)
@@ -819,36 +935,6 @@ export class RoomManager {
     this.scheduleActionTimeout(result.roomId, result.room)
   }
 
-  private handleChat(socket: WebSocketLike, message: ChatMessage): void {
-    const now = Date.now()
-    const result = this.gateway.sendChat(socket, message)
-    if ("errorCode" in result) {
-      this.logger.log({
-        level: "ERROR",
-        timestamp: now,
-        message: "handleChat",
-        roomId: message.roomId,
-        messageType: MESSAGE_TYPES.CHAT,
-        result: "error",
-        details: {
-          code: result.errorCode,
-        },
-      })
-      this.sendError(socket, result.errorCode, result.errorMessage)
-      return
-    }
-    this.broadcastChat(result.roomId, result.playerId, result.text, result.timestamp)
-    this.logger.log({
-      level: "INFO",
-      timestamp: now,
-      message: "handleChat",
-      roomId: result.roomId,
-      playerId: result.playerId,
-      messageType: MESSAGE_TYPES.CHAT,
-      result: "success",
-    })
-  }
-
   private broadcastEvents(roomId: string, events: GameEvent[]): void {
     if (events.length === 0) {
       return
@@ -922,6 +1008,33 @@ export class RoomManager {
       roomId,
       playerId,
       text,
+      timestamp,
+    }
+    const payload = JSON.stringify(message)
+    const players = this.connections.getRoomPlayers(roomId)
+    for (const pid of players) {
+      const connectionInfo = this.connections.getConnection(pid)
+      if (connectionInfo) {
+        connectionInfo.socket.send(payload)
+      }
+    }
+  }
+
+  private broadcastVoiceChat(
+    roomId: string,
+    playerId: PlayerId,
+    audio: string,
+    mimeType: string,
+    durationMs: number,
+    timestamp: number,
+  ): void {
+    const message: VoiceChatBroadcastMessage = {
+      type: MESSAGE_TYPES.VOICE_CHAT,
+      roomId,
+      playerId,
+      audio,
+      mimeType,
+      durationMs,
       timestamp,
     }
     const payload = JSON.stringify(message)
