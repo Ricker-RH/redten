@@ -40,7 +40,7 @@ const defaultConfig: GameConfig = {
     redTenSuits: ["Heart", "Diamond"],
   },
   timingConfig: {
-    actionTimeoutMs: 10000,
+    actionTimeoutMs: 15000,
   },
   scoringConfig: {
     baseScore: 10,

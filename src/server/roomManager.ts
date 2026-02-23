@@ -1,4 +1,12 @@
-import { GameEvent, PlayerAction, PlayerActionType, PlayerId } from "../domain/types"
+import {
+  Card,
+  Combo,
+  GameEvent,
+  PlayerAction,
+  PlayerActionType,
+  PlayerId,
+  SeatId,
+} from "../domain/types"
 import { SettlementResult } from "../rules/settlementRule"
 import {
   GameRoom,
@@ -9,6 +17,7 @@ import {
   startGameInRoom,
   startNextHand as startNextHandInRoom,
 } from "../room/gameRoom"
+import { compareCombos } from "../rules/comboRule"
 import {
   ClientMessage,
   ErrorMessage,
@@ -404,6 +413,15 @@ export class RoomManager {
 
   private roomEventLog = new Map<string, GameEvent[]>()
 
+  private actionTimeouts = new Map<
+    string,
+    {
+      timer: any
+      handId: string
+      turnSeatId: SeatId | null
+    }
+  >()
+
   constructor(private logger: Logger) {
     this.connections = new ConnectionRegistry()
     this.rooms = new RoomRegistry()
@@ -573,6 +591,9 @@ export class RoomManager {
       result.accepted,
       result.settlement,
     )
+    if (room) {
+      this.scheduleActionTimeout(result.roomId, room)
+    }
     this.logger.log({
       level: "INFO",
       timestamp: now,
@@ -705,6 +726,7 @@ export class RoomManager {
       messageType: MESSAGE_TYPES.START_GAME,
       result: "success",
     })
+    this.scheduleActionTimeout(result.roomId, result.room)
   }
 
   private handleStartNextHand(socket: WebSocketLike, message: StartNextHandMessage): void {
@@ -735,6 +757,7 @@ export class RoomManager {
       messageType: MESSAGE_TYPES.START_NEXT_HAND,
       result: "success",
     })
+    this.scheduleActionTimeout(result.roomId, result.room)
   }
 
   private broadcastEvents(roomId: string, events: GameEvent[]): void {
@@ -831,6 +854,7 @@ export class RoomManager {
       return
     }
     if (this.isRoomFinished(room)) {
+      this.clearActionTimeout(roomId)
       this.rooms.deleteRoom(roomId)
       this.roomEventLog.delete(roomId)
       this.logger.log({
@@ -841,6 +865,127 @@ export class RoomManager {
         result: "success",
       })
     }
+  }
+
+  private scheduleActionTimeout(roomId: string, room: GameRoom): void {
+    const state = room.gameState
+    this.clearActionTimeout(roomId)
+    if (!state || state.phase !== "PLAYING") {
+      return
+    }
+    if (state.currentTurnSeatId == null || state.currentPlayerId == null) {
+      return
+    }
+    const timeoutMs = state.config.timingConfig.actionTimeoutMs
+    if (timeoutMs <= 0) {
+      return
+    }
+    const handId = state.handId
+    const turnSeatId = state.currentTurnSeatId
+    const timer = setTimeout(() => {
+      this.handleActionTimeout(roomId, handId, turnSeatId)
+    }, timeoutMs)
+    this.actionTimeouts.set(roomId, {
+      timer,
+      handId,
+      turnSeatId,
+    })
+  }
+
+  private clearActionTimeout(roomId: string): void {
+    const entry = this.actionTimeouts.get(roomId)
+    if (!entry) {
+      return
+    }
+    clearTimeout(entry.timer)
+    this.actionTimeouts.delete(roomId)
+  }
+
+  private handleActionTimeout(roomId: string, handId: string, turnSeatId: SeatId | null): void {
+    const room = this.rooms.getRoom(roomId)
+    if (!room || !room.gameState) {
+      return
+    }
+    const state = room.gameState
+    if (state.handId !== handId) {
+      return
+    }
+    if (state.phase !== "PLAYING") {
+      return
+    }
+    if (state.currentTurnSeatId == null || state.currentTurnSeatId !== turnSeatId) {
+      return
+    }
+    const seat = state.seats.find(s => s.seatId === state.currentTurnSeatId)
+    if (!seat || seat.isFinished) {
+      return
+    }
+    const now = Date.now()
+    const canPass = !!state.lastPlayedCombo
+    let actionType: PlayerActionType = "PASS"
+    let cardIds: number[] = []
+    if (!canPass) {
+      const handCards = seat.handCards.slice()
+      if (handCards.length === 0) {
+        return
+      }
+      let chosen: Card = handCards[0]
+      let chosenCombo: Combo = {
+        type: "SINGLE",
+        cards: [chosen],
+        mainRank: chosen.rank,
+        length: 1,
+      }
+      for (let i = 1; i < handCards.length; i += 1) {
+        const c = handCards[i]
+        const combo: Combo = {
+          type: "SINGLE",
+          cards: [c],
+          mainRank: c.rank,
+          length: 1,
+        }
+        const cmp = compareCombos(combo, chosenCombo)
+        if (cmp === -1) {
+          chosen = c
+          chosenCombo = combo
+        }
+      }
+      actionType = "PLAY_CARDS"
+      cardIds = [chosen.id]
+    }
+    const playerAction: PlayerAction = {
+      playerId: seat.playerId,
+      seatId: seat.seatId,
+      type: actionType,
+      cardIds,
+      timestamp: now,
+    }
+    const result: RoomActionResult = applyPlayerAction(room, playerAction)
+    this.rooms.setRoom(roomId, result.room)
+    const updatedRoom = result.room
+    const events = result.events
+    const settlement = result.settlement
+    const stateAfter = updatedRoom.gameState
+    if (events.length > 0) {
+      this.broadcastEvents(roomId, events)
+    }
+    if (stateAfter) {
+      this.broadcastRoomSnapshot(roomId, updatedRoom)
+    }
+    this.broadcastActionResult(roomId, seat.playerId, actionType, result.accepted, settlement)
+    this.logger.log({
+      level: result.accepted ? "INFO" : "ERROR",
+      timestamp: now,
+      message: "handleActionTimeout",
+      roomId,
+      playerId: seat.playerId,
+      result: result.accepted ? "success" : "error",
+    })
+    if (!stateAfter || stateAfter.phase !== "PLAYING") {
+      this.clearActionTimeout(roomId)
+      return
+    }
+    this.scheduleActionTimeout(roomId, updatedRoom)
   }
 
   private isRoomFinished(room: GameRoom): boolean {

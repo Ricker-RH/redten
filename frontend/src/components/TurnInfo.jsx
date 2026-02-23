@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react"
+
 function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
   if (!roomState) {
     return null
@@ -43,6 +45,42 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
   const isSelfRedTen =
     selfSeat && selfSeat.camp === "RED_TEN"
   const isSelfKing = kingPlayerId && kingPlayerId === playerId
+
+  const timeoutMs =
+    roomState.config &&
+    roomState.config.timingConfig &&
+    typeof roomState.config.timingConfig.actionTimeoutMs === "number"
+      ? roomState.config.timingConfig.actionTimeoutMs
+      : 15000
+  const [remainingMs, setRemainingMs] = useState(timeoutMs)
+
+  useEffect(() => {
+    if (!currentSeatId || !currentSeat || roomState.phase !== "PLAYING") {
+      setRemainingMs(0)
+      return
+    }
+    const lastEventId = lastEvent && typeof lastEvent.eventId === "number" ? lastEvent.eventId : null
+    const startTimestamp =
+      lastEvent && lastEventId !== null && typeof lastEvent.timestamp === "number"
+        ? lastEvent.timestamp
+        : Date.now()
+    const update = () => {
+      const now = Date.now()
+      const elapsed = now - startTimestamp
+      const left = timeoutMs - elapsed
+      setRemainingMs(left > 0 ? left : 0)
+    }
+    update()
+    const timer = setInterval(update, 200)
+    return () => {
+      clearInterval(timer)
+    }
+  }, [currentSeatId, roomState.handId, roomState.phase, timeoutMs, lastEvent && lastEvent.eventId])
+
+  const remainingSeconds =
+    roomState.phase === "PLAYING" && currentSeat && remainingMs > 0
+      ? Math.ceil(remainingMs / 1000)
+      : 0
 
   let windText = ""
   if (windMode !== "NONE" && windSourceSeat && windDefaultSeat) {
@@ -115,6 +153,11 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
                   <span className="text-slate-300">
                     （座位 {currentSeat.seatId}）
                   </span>
+                  {roomState.phase === "PLAYING" && remainingSeconds > 0 && (
+                    <span className="ml-2 text-amber-200">
+                      剩余 {remainingSeconds} 秒
+                    </span>
+                  )}
                 </>
               ) : (
                 <>
@@ -125,6 +168,11 @@ function TurnInfo({ roomState, playerId, lastEvent, kingPlayerId }) {
                   <span className="text-slate-300">
                     （ID {currentSeat.playerId}）
                   </span>
+                  {roomState.phase === "PLAYING" && remainingSeconds > 0 && (
+                    <span className="ml-2 text-amber-200">
+                      剩余 {remainingSeconds} 秒
+                    </span>
+                  )}
                 </>
               )}
             </div>
