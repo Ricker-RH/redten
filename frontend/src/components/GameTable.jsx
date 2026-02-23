@@ -173,25 +173,25 @@ function GameTable({
             kingPlayerId={kingPlayerId}
           />
         </div>
-        <div className="px-2 pb-3 flex flex-col items-center gap-2">
-          <div className="w-full max-w-md flex items-center justify-center gap-2">
+        <div className="px-2 pb-3 flex flex-col items-center">
+          <div className="w-full max-w-xs flex items-center justify-center gap-2 mb-2">
             {canInstantWin && (
               <button
-                className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-[11px] font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.97] transition"
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-[11px] font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.97] transition"
                 onClick={onInstantWin}
               >
                 三红十直接获胜
               </button>
             )}
             <button
-              className="flex-1 px-3 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/50 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-emerald-400/70 active:scale-[0.97] transition disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/50 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-emerald-400/70 active:scale-[0.97] transition disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={onPlay}
               disabled={!selectedCardIds.length}
             >
               出牌
             </button>
             <button
-              className="px-3 py-2 rounded-xl bg-slate-800 text-xs font-medium text-slate-200 border border-slate-600 hover:border-slate-400 hover:bg-slate-700 active:scale-[0.97] transition"
+              className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-medium text-slate-200 border border-slate-600 hover:border-slate-400 hover:bg-slate-700 active:scale-[0.97] transition"
               onClick={onPass}
             >
               Pass
