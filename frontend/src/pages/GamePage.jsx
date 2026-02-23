@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import GameTable from "../components/GameTable"
 import useGameSocket from "../websocket/useGameSocket"
 
@@ -15,6 +15,8 @@ function GamePage({ playerId, roomId, onExit }) {
   const [redTenPlayerIds, setRedTenPlayerIds] = useState([])
   const [showSeatDraw, setShowSeatDraw] = useState(false)
   const [drawSeatId, setDrawSeatId] = useState(null)
+  const [drawDisplaySeat, setDrawDisplaySeat] = useState(null)
+  const [isDrawingSeat, setIsDrawingSeat] = useState(false)
   const lastGameStateRef = useRef(null)
 
   const { status, sendAction } = useGameSocket({
@@ -76,6 +78,7 @@ function GamePage({ playerId, roomId, onExit }) {
         const seat = nextGameState.seats.find(s => s.playerId === playerId)
         if (seat) {
           setDrawSeatId(seat.seatId)
+          setDrawDisplaySeat(null)
           setShowSeatDraw(true)
         }
       }
@@ -176,6 +179,31 @@ function GamePage({ playerId, roomId, onExit }) {
     })
   }
 
+  useEffect(() => {
+    if (!showSeatDraw || !drawSeatId) {
+      return
+    }
+    setIsDrawingSeat(true)
+    setDrawDisplaySeat(null)
+    let elapsed = 0
+    const total = 1200
+    const step = 90
+    const timer = setInterval(() => {
+      elapsed += step
+      if (elapsed >= total) {
+        clearInterval(timer)
+        setDrawDisplaySeat(drawSeatId)
+        setIsDrawingSeat(false)
+        return
+      }
+      const value = Math.floor(Math.random() * 7) + 1
+      setDrawDisplaySeat(value)
+    }, step)
+    return () => {
+      clearInterval(timer)
+    }
+  }, [showSeatDraw, drawSeatId])
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-950 via-slate-950 to-slate-900 text-slate-50">
       <header className="h-16 flex items-center justify-between px-8 border-b border-slate-800 bg-slate-950/80 backdrop-blur">
@@ -261,7 +289,7 @@ function GamePage({ playerId, roomId, onExit }) {
                           {isSelf && <span className="ml-1 text-cyan-300">（你）</span>}
                         </div>
                         <div className="text-[11px] text-slate-400">
-                          座位 {index + 1}
+                          入场顺序 {index + 1}
                           {host && <span className="ml-2 text-amber-300">房主</span>}
                         </div>
                       </div>
@@ -332,19 +360,26 @@ function GamePage({ playerId, roomId, onExit }) {
             <div className="text-lg font-semibold text-slate-50 mb-4">
               你抽到的座位号是
               <span className="mx-2 text-3xl font-extrabold text-emerald-400">
-                {drawSeatId}
+                {drawDisplaySeat || drawSeatId}
               </span>
               号
             </div>
-            <div className="mb-6 text-xs text-slate-300">
-              本局中你的座位号将保持不变，后续每局将按大皇顺序轮转起牌。
-            </div>
+            {isDrawingSeat ? (
+              <div className="mb-6 text-xs text-cyan-300">
+                正在随机抽取座位号，请稍候…
+              </div>
+            ) : (
+              <div className="mb-6 text-xs text-slate-300">
+                本局中你的座位号将保持不变，后续每局将按大皇顺序轮转起牌。
+              </div>
+            )}
             <div className="flex justify-end">
               <button
                 className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 active:scale-[0.98] transition"
                 onClick={() => setShowSeatDraw(false)}
+                disabled={isDrawingSeat}
               >
-                开始对局
+                {isDrawingSeat ? "抽取中…" : "开始对局"}
               </button>
             </div>
           </div>

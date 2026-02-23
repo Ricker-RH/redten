@@ -57,7 +57,11 @@ function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, 
           }
         } else if (data.type === "ERROR") {
           if (onError) {
-            const message = data.message || data.code || "未知错误"
+            const code = data.code || ""
+            let message = data.message || code || "未知错误"
+            if (code === "ROOM_NOT_FOUND") {
+              message = "房间不存在或已被清理，请返回大厅重新进入"
+            }
             onError(message)
           }
         }
