@@ -66,9 +66,9 @@ function GameTable({
   return (
     <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),_transparent_60%),radial-gradient(circle_at_bottom,_rgba(34,197,94,0.25),_transparent_55%)]">
       <div className="flex-1 flex flex-col md:hidden">
-        <div className="flex flex-row items-center justify-center px-2 pt-2 pb-1 overflow-x-auto gap-2">
+        <div className="flex flex-wrap items-center justify-center px-2 pt-2 pb-1 gap-2">
           {otherSeats.map(seat => (
-            <div key={seat.seatId} className="flex-shrink-0">
+            <div key={seat.seatId} className="flex-[0_0_48%] max-w-[48%]">
               <PlayerSeat
                 seat={seat}
                 align="top"
