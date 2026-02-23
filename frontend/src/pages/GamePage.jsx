@@ -19,6 +19,8 @@ function GamePage({ playerId, roomId, onExit }) {
   const [isDrawingSeat, setIsDrawingSeat] = useState(false)
   const [enableSound, setEnableSound] = useState(true)
   const [lastActionType, setLastActionType] = useState("")
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState("")
   const lastGameStateRef = useRef(null)
 
   const { status, sendAction } = useGameSocket({
@@ -45,15 +47,22 @@ function GamePage({ playerId, roomId, onExit }) {
         nextGameState.lastCombo &&
         nextGameState.lastCombo !== prevState.lastCombo
       ) {
-        const entry = {
-          combo: nextGameState.lastCombo,
-          seatId: nextGameState.lastComboSeatId || null,
-          playerId: nextGameState.lastPlayedPlayerId || null,
-          handId: nextGameState.handId,
-        }
         setPlayHistory(prev => {
+          const baseEntry = {
+            combo: nextGameState.lastCombo,
+            seatId: nextGameState.lastComboSeatId || null,
+            playerId: nextGameState.lastPlayedPlayerId || null,
+            handId: nextGameState.handId,
+          }
+          const sameHand = prev.filter(it => it.handId === baseEntry.handId)
+          const lastInHand = sameHand.length > 0 ? sameHand[sameHand.length - 1] : null
+          const entry = {
+            ...baseEntry,
+            prevSeatId: lastInHand ? lastInHand.seatId || null : null,
+            prevPlayerId: lastInHand ? lastInHand.playerId || null : null,
+          }
           const merged = prev.concat(entry)
-          const limit = 4
+          const limit = 10
           return merged.slice(-limit)
         })
 
@@ -105,6 +114,13 @@ function GamePage({ playerId, roomId, onExit }) {
         setErrorText(result.error)
       }
     },
+    onChat: msg => {
+      setChatMessages(prev => {
+        const merged = prev.concat(msg)
+        const limit = 50
+        return merged.slice(-limit)
+      })
+    },
     onError: msg => {
       setErrorText(msg)
     }
@@ -114,6 +130,12 @@ function GamePage({ playerId, roomId, onExit }) {
   const selfSeat =
     gameState && gameState.seats ? gameState.seats.find(s => s.playerId === playerId) : null
   const canInstantWin = !!(selfSeat && selfSeat.canInstantWin)
+  const readyIds = room && room.readyPlayerIds ? room.readyPlayerIds : []
+  const hostId = room && room.hostId ? room.hostId : null
+  const allNonHostReady =
+    room && room.players && hostId
+      ? room.players.filter(id => id !== hostId).every(id => readyIds.includes(id))
+      : false
 
   const handleToggleCard = cardId => {
     setSelectedCardIds(prev =>
@@ -192,6 +214,19 @@ function GamePage({ playerId, roomId, onExit }) {
       type: "START_NEXT_HAND",
       roomId
     })
+  }
+
+  const handleSendChat = () => {
+    const text = (chatInput || "").trim()
+    if (!text || !roomId) {
+      return
+    }
+    sendAction({
+      type: "CHAT",
+      roomId,
+      text
+    })
+    setChatInput("")
   }
 
   useEffect(() => {
@@ -400,6 +435,88 @@ function GamePage({ playerId, roomId, onExit }) {
           </div>
         )}
       </main>
+      {room && (
+        <div className="fixed bottom-3 left-3 right-3 md:right-4 md:left-auto md:w-72 z-30">
+          <div className="bg-slate-900/95 border border-slate-700/90 rounded-2xl shadow-lg shadow-cyan-500/30 overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700 text-[11px] text-slate-200">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                <span>房间聊天</span>
+              </div>
+              <div className="text-[10px] text-slate-400 hidden md:block">
+                仅当前房间内玩家可见
+              </div>
+            </div>
+            <div className="max-h-40 md:max-h-52 overflow-y-auto px-3 py-2 space-y-1.5 text-[11px]">
+              {chatMessages.length === 0 && (
+                <div className="text-slate-500">暂时没有聊天内容，可以先打个招呼。</div>
+              )}
+              {chatMessages.map((msg, index) => {
+                const isSelf = msg.playerId === playerId
+                const timeText = msg.timestamp
+                  ? new Date(msg.timestamp).toLocaleTimeString("zh-CN", {
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })
+                  : ""
+                return (
+                  <div
+                    key={`${msg.timestamp || 0}-${msg.playerId}-${index}`}
+                    className={
+                      "flex " + (isSelf ? "justify-end" : "justify-start")
+                    }
+                  >
+                    <div
+                      className={
+                        "inline-flex max-w-[80%] px-2 py-1 rounded-xl border text-[11px] leading-snug " +
+                        (isSelf
+                          ? "bg-emerald-500/15 border-emerald-400/70 text-emerald-100"
+                          : "bg-slate-800/90 border-slate-700 text-slate-100")
+                      }
+                    >
+                      <div className="flex flex-col">
+                        <div className="flex items-center justify-between gap-2 mb-[2px]">
+                          <span className="text-[10px] text-slate-300">
+                            玩家 {msg.playerId}
+                            {isSelf && <span className="ml-1 text-cyan-300">(你)</span>}
+                          </span>
+                          {timeText && (
+                            <span className="text-[9px] text-slate-500">{timeText}</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] break-words whitespace-pre-wrap">
+                          {msg.text}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="px-3 py-2 border-t border-slate-700 flex items-center gap-2">
+              <input
+                className="flex-1 rounded-xl bg-slate-800 border border-slate-600 px-2 py-1 text-[11px] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-cyan-400 focus:border-cyan-400"
+                placeholder="输入聊天内容，按回车发送"
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault()
+                    handleSendChat()
+                  }
+                }}
+              />
+              <button
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-500 text-[11px] font-semibold text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed hover:from-cyan-400 hover:to-emerald-400 transition"
+                onClick={handleSendChat}
+                disabled={!chatInput.trim() || status !== "connected"}
+              >
+                发送
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showSeatDraw && drawSeatId && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70">
           <div className="w-full max-w-md px-8 py-6 rounded-3xl bg-slate-950 border border-cyan-400/70 shadow-2xl shadow-cyan-500/50">
@@ -527,34 +644,56 @@ function GamePage({ playerId, roomId, onExit }) {
                 </div>
               )}
             </div>
-            <div className="mt-5 flex flex-wrap justify-end gap-3">
-              <button
-                className="px-4 py-2 rounded-xl bg-slate-800 text-[11px] md:text-xs text-slate-200 hover:bg-slate-700 transition"
-                onClick={() => setActionResult(null)}
-              >
-                继续观战
-              </button>
-              {isHost && (
+            <div className="mt-5 flex flex-wrap justify-between items-center gap-3">
+              <div className="text-[11px] md:text-xs text-slate-300">
+                {isHost
+                  ? allNonHostReady
+                    ? "所有玩家已准备，房主可以开始下一局。"
+                    : "等待所有非房主玩家点击“准备下一局”。"
+                  : isReady
+                  ? "你已准备好下一局，等待房主开始。"
+                  : "请点击“准备下一局”，表示你愿意继续游戏。"}
+              </div>
+              <div className="flex flex-wrap justify-end gap-3">
                 <button
-                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition"
+                  className="px-4 py-2 rounded-xl bg-slate-800 text-[11px] md:text-xs text-slate-200 hover:bg-slate-700 transition"
+                  onClick={() => setActionResult(null)}
+                >
+                  继续观战
+                </button>
+                {!isHost && (
+                  <button
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition"
+                    onClick={() => {
+                      handleToggleReady()
+                    }}
+                    disabled={!room}
+                  >
+                    {isReady ? "取消准备" : "准备下一局"}
+                  </button>
+                )}
+                {isHost && (
+                  <button
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-emerald-400 hover:to-cyan-400 transition"
+                    onClick={() => {
+                      setActionResult(null)
+                      handleStartNextHand()
+                    }}
+                    disabled={!gameState || gameState.phase !== "WAITING" || !allNonHostReady}
+                  >
+                    开始下一局
+                  </button>
+                )}
+                <button
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-amber-300 hover:to-rose-300 transition"
                   onClick={() => {
                     setActionResult(null)
-                    handleStartNextHand()
+                    onExit()
                   }}
-                  disabled={!gameState || gameState.phase !== "WAITING"}
                 >
-                  开始下一局
+                  退出牌桌
                 </button>
-              )}
-              <button
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-[11px] md:text-xs font-semibold text-slate-950 hover:from-amber-300 hover:to-rose-300 transition"
-                onClick={() => {
-                  setActionResult(null)
-                  onExit()
-                }}
-              >
-                退出牌桌
-              </button>
+              </div>
             </div>
           </div>
         </div>

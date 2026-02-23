@@ -1,7 +1,16 @@
-function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
+function PlayerSeat({
+  seat,
+  align,
+  isCurrent,
+  hasRedTen,
+  hasCrown,
+  isPassed,
+  isLastActor,
+  campLabel,
+}) {
   const base =
     "px-3 py-2 rounded-2xl bg-slate-900/85 border border-slate-700/80 text-xs text-slate-100 min-w-[120px]"
-  const stateText = seat.isFinished ? "已出完" : "出牌中"
+  const stateText = seat.isFinished ? "已出完" : isLastActor ? "刚刚出牌" : "出牌中"
 
   return (
     <div
@@ -20,6 +29,8 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
           " flex items-center justify-between gap-2" +
           (isCurrent
             ? " shadow-[0_0_22px_rgba(34,211,238,0.95)] border-cyan-300/90 ring-2 ring-cyan-300/70 scale-[1.02] transition-transform"
+            : isLastActor
+            ? " shadow-[0_0_18px_rgba(52,211,153,0.9)] border-emerald-300/80"
             : "")
         }
       >
@@ -36,6 +47,11 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
             <span className="text-[10px] text-slate-400">
               座位 {seat.seatId} · {stateText}
             </span>
+            {campLabel && (
+              <span className="mt-0.5 inline-flex items-center text-[9px] text-emerald-300">
+                {campLabel}
+              </span>
+            )}
           </div>
         </div>
         {(hasRedTen || hasCrown) && (
@@ -56,6 +72,11 @@ function PlayerSeat({ seat, align, isCurrent, hasRedTen, hasCrown, isPassed }) {
       {isCurrent && (
         <div className="mt-1 px-3 py-0.5 rounded-full bg-cyan-500 text-[10px] font-semibold text-slate-950 shadow-[0_0_18px_rgba(34,211,238,0.95)] tracking-[0.22em]">
           当前出牌
+        </div>
+      )}
+      {!isCurrent && seat.isFinished && (
+        <div className="mt-1 px-3 py-0.5 rounded-full bg-emerald-500 text-[10px] font-semibold text-slate-950 shadow-[0_0_18px_rgba(16,185,129,0.9)] tracking-[0.22em]">
+          已出完
         </div>
       )}
       {isPassed && (

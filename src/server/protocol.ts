@@ -14,6 +14,7 @@ export const MESSAGE_TYPES = {
   PONG: "PONG",
   GAME_EVENTS: "GAME_EVENTS",
   ROOM_SNAPSHOT: "ROOM_SNAPSHOT",
+  CHAT: "CHAT",
   ERROR: "ERROR",
 } as const
 
@@ -25,6 +26,7 @@ export type ClientMessage =
   | StartGameMessage
   | StartNextHandMessage
   | PingMessage
+  | ChatMessage
 
 export interface JoinRoomMessage {
   type: typeof MESSAGE_TYPES.JOIN_ROOM
@@ -83,6 +85,12 @@ export interface PingMessage {
   type: typeof MESSAGE_TYPES.PING
 }
 
+export interface ChatMessage {
+  type: typeof MESSAGE_TYPES.CHAT
+  roomId: string
+  text: string
+}
+
 export interface PongMessage {
   type: typeof MESSAGE_TYPES.PONG
 }
@@ -93,6 +101,7 @@ export type ServerMessage =
   | ErrorMessage
   | PongMessage
   | PlayerActionResultMessage
+  | ChatBroadcastMessage
 
 export interface GameEventsMessage {
   type: typeof MESSAGE_TYPES.GAME_EVENTS
@@ -110,4 +119,12 @@ export interface ErrorMessage {
   type: typeof MESSAGE_TYPES.ERROR
   code: string
   message: string
+}
+
+export interface ChatBroadcastMessage {
+  type: typeof MESSAGE_TYPES.CHAT
+  roomId: string
+  playerId: string
+  text: string
+  timestamp: number
 }

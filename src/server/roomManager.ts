@@ -19,6 +19,8 @@ import {
 } from "../room/gameRoom"
 import { compareCombos } from "../rules/comboRule"
 import {
+  ChatBroadcastMessage,
+  ChatMessage,
   ClientMessage,
   ErrorMessage,
   GameEventsMessage,
@@ -281,7 +283,11 @@ class GameGateway {
         errorMessage: "Game already started",
       }
     }
-    const nextRoom = startGameInRoom(room)
+    const nextRoomBase = startGameInRoom(room)
+    const nextRoom: GameRoom = {
+      ...nextRoomBase,
+      readyPlayerIds: [],
+    }
     this.rooms.setRoom(roomId, nextRoom)
     return {
       room: nextRoom,
@@ -318,7 +324,20 @@ class GameGateway {
         errorMessage: "Game is not finished yet",
       }
     }
-    const nextRoom = startNextHandInRoom(room)
+    const readySet = new Set<PlayerId>(room.readyPlayerIds)
+    const nonHostPlayers = room.players.filter(id => id !== room.hostId)
+    const allReady = nonHostPlayers.every(id => readySet.has(id))
+    if (!allReady) {
+      return {
+        errorCode: "PLAYERS_NOT_READY",
+        errorMessage: "Not all non-host players are ready for next hand",
+      }
+    }
+    const nextRoomBase = startNextHandInRoom(room)
+    const nextRoom: GameRoom = {
+      ...nextRoomBase,
+      readyPlayerIds: [],
+    }
     this.rooms.setRoom(roomId, nextRoom)
     return {
       room: nextRoom,
@@ -400,6 +419,44 @@ class GameGateway {
     }
   }
 
+  sendChat(socket: WebSocketLike, message: ChatMessage): { roomId: string; playerId: PlayerId; text: string; timestamp: number } | { errorCode: string; errorMessage: string } {
+    const playerId = this.connections.getPlayerIdForSocket(socket)
+    if (!playerId) {
+      return {
+        errorCode: "PLAYER_NOT_BOUND",
+        errorMessage: "Player not bound to socket",
+      }
+    }
+    const roomId = message.roomId
+    const room = this.rooms.getRoom(roomId)
+    if (!room) {
+      return {
+        errorCode: "ROOM_NOT_FOUND",
+        errorMessage: "Room not found",
+      }
+    }
+    if (!room.players.includes(playerId)) {
+      return {
+        errorCode: "PLAYER_NOT_IN_ROOM",
+        errorMessage: "Player not in room",
+      }
+    }
+    const text = (message.text || "").slice(0, 200)
+    if (!text.trim()) {
+      return {
+        errorCode: "EMPTY_MESSAGE",
+        errorMessage: "Empty chat message",
+      }
+    }
+    const timestamp = Date.now()
+    return {
+      roomId,
+      playerId,
+      text,
+      timestamp,
+    }
+  }
+
 }
 
 export class RoomManager {
@@ -471,6 +528,8 @@ export class RoomManager {
         this.handleStartGame(socket, message)
       } else if (message.type === MESSAGE_TYPES.START_NEXT_HAND) {
         this.handleStartNextHand(socket, message)
+      } else if (message.type === MESSAGE_TYPES.CHAT) {
+        this.handleChat(socket, message)
       }
     } catch (err) {
       const details =
@@ -760,6 +819,36 @@ export class RoomManager {
     this.scheduleActionTimeout(result.roomId, result.room)
   }
 
+  private handleChat(socket: WebSocketLike, message: ChatMessage): void {
+    const now = Date.now()
+    const result = this.gateway.sendChat(socket, message)
+    if ("errorCode" in result) {
+      this.logger.log({
+        level: "ERROR",
+        timestamp: now,
+        message: "handleChat",
+        roomId: message.roomId,
+        messageType: MESSAGE_TYPES.CHAT,
+        result: "error",
+        details: {
+          code: result.errorCode,
+        },
+      })
+      this.sendError(socket, result.errorCode, result.errorMessage)
+      return
+    }
+    this.broadcastChat(result.roomId, result.playerId, result.text, result.timestamp)
+    this.logger.log({
+      level: "INFO",
+      timestamp: now,
+      message: "handleChat",
+      roomId: result.roomId,
+      playerId: result.playerId,
+      messageType: MESSAGE_TYPES.CHAT,
+      result: "success",
+    })
+  }
+
   private broadcastEvents(roomId: string, events: GameEvent[]): void {
     if (events.length === 0) {
       return
@@ -816,6 +905,24 @@ export class RoomManager {
         },
         settlement: settlement || undefined,
       },
+    }
+    const payload = JSON.stringify(message)
+    const players = this.connections.getRoomPlayers(roomId)
+    for (const pid of players) {
+      const connectionInfo = this.connections.getConnection(pid)
+      if (connectionInfo) {
+        connectionInfo.socket.send(payload)
+      }
+    }
+  }
+
+  private broadcastChat(roomId: string, playerId: PlayerId, text: string, timestamp: number): void {
+    const message: ChatBroadcastMessage = {
+      type: MESSAGE_TYPES.CHAT,
+      roomId,
+      playerId,
+      text,
+      timestamp,
     }
     const payload = JSON.stringify(message)
     const players = this.connections.getRoomPlayers(roomId)

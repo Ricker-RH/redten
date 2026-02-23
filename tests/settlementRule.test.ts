@@ -19,13 +19,14 @@ function createSeat(
   }
 }
 
-test("red ten camp wins when all red players finish and some normal players remain", () => {
+test("red ten camp wins when all red players finish and exactly one normal player remains", () => {
   const seats: SeatState[] = [
     createSeat(1, "RED_TEN", true, 0),
     createSeat(2, "RED_TEN", true, 0),
-    createSeat(3, "NORMAL", true, 0),
-    createSeat(4, "NORMAL", false, 0),
-    createSeat(5, "NORMAL", false, 0),
+    createSeat(3, "RED_TEN", true, 0),
+    createSeat(4, "NORMAL", true, 0),
+    createSeat(5, "NORMAL", true, 0),
+    createSeat(6, "NORMAL", false, 0),
   ]
   const state: GameState = {
     tableId: "T1",
@@ -41,7 +42,7 @@ test("red ten camp wins when all red players finish and some normal players rema
         actionTimeoutMs: 10000,
       },
       scoringConfig: {
-        baseScore: 10,
+        baseScore: 1,
       },
     },
     stage: "SETTLING" as GameStage,
@@ -63,11 +64,12 @@ test("red ten camp wins when all red players finish and some normal players rema
   const result = calculateSettlement(state)
   expect(result.winnerId).toBe("P1")
   const deltas = new Map(result.playerResults.map(r => [r.playerId, r.scoreDelta]))
-  expect(deltas.get("P1")).toBe(4)
-  expect(deltas.get("P2")).toBe(4)
-  expect(deltas.get("P4")).toBe(-4)
-  expect(deltas.get("P5")).toBe(-4)
-  expect(deltas.get("P3")).toBe(0)
+  expect(deltas.get("P1")).toBe(3)
+  expect(deltas.get("P2")).toBe(3)
+  expect(deltas.get("P3")).toBe(3)
+  expect(deltas.get("P4")).toBe(-3)
+  expect(deltas.get("P5")).toBe(-3)
+  expect(deltas.get("P6")).toBe(-3)
 })
 
 test("draw when first finisher is red ten but normal camp all finish while red players remain", () => {

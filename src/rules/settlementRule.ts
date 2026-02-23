@@ -61,28 +61,35 @@ export function calculateSettlement(state: GameState): SettlementResult {
       winnerId = winnerSeat ? winnerSeat.playerId : null
     }
   }
+  const baseScore =
+    state.config &&
+    state.config.scoringConfig &&
+    typeof state.config.scoringConfig.baseScore === "number"
+      ? state.config.scoringConfig.baseScore
+      : 1
   let winnerSeatsCount = 0
+  let loserSeatsCount = 0
   let loserUnfinishedCount = 0
+  let lossPerPlayer = 0
+  let gainPerWinner = 0
   if (!isDraw && winnerCamp && loserCamp) {
     winnerSeatsCount = seats.filter(seat => seat.camp === winnerCamp).length
-    loserUnfinishedCount = seats.filter(
-      seat => seat.camp === loserCamp && !seat.isFinished,
-    ).length
-  }
-  let lossPerUnfinished = 0
-  let gainPerWinner = 0
-  if (!isDraw && winnerSeatsCount > 0 && loserUnfinishedCount > 0) {
-    lossPerUnfinished = winnerSeatsCount * loserUnfinishedCount
-    const totalLoss = lossPerUnfinished * loserUnfinishedCount
-    gainPerWinner = totalLoss / winnerSeatsCount
+    const loserSeats = seats.filter(seat => seat.camp === loserCamp)
+    loserSeatsCount = loserSeats.length
+    loserUnfinishedCount = loserSeats.filter(seat => !seat.isFinished).length
+    if (winnerSeatsCount > 0 && loserSeatsCount > 0 && loserUnfinishedCount > 0) {
+      lossPerPlayer = loserUnfinishedCount * baseScore * winnerSeatsCount
+      const totalLoss = lossPerPlayer * loserSeatsCount
+      gainPerWinner = totalLoss / winnerSeatsCount
+    }
   }
   const playerResults: PlayerSettlement[] = seats.map(seat => {
     let delta = 0
     if (!isDraw && winnerCamp && loserCamp) {
       if (seat.camp === winnerCamp) {
         delta = gainPerWinner
-      } else if (seat.camp === loserCamp && !seat.isFinished && lossPerUnfinished > 0) {
-        delta = -lossPerUnfinished
+      } else if (seat.camp === loserCamp && lossPerPlayer > 0) {
+        delta = -lossPerPlayer
       }
     }
     return {

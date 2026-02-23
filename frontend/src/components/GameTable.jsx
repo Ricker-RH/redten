@@ -48,17 +48,31 @@ function GameTable({
     )
   }
 
-  const seats = roomState.seats || []
-  const selfSeat = seats.find(s => s.playerId === playerId)
-  const otherSeats = seats.filter(s => s.playerId !== playerId)
+  const seats = (roomState.seats || []).slice().sort((a, b) => a.seatId - b.seatId)
+  const selfSeat = seats.find(s => s.playerId === playerId) || null
+  let otherSeats = []
+  if (selfSeat) {
+    const index = seats.findIndex(s => s.seatId === selfSeat.seatId)
+    const ordered = []
+    for (let i = 0; i < seats.length; i += 1) {
+      ordered.push(seats[(index + i) % seats.length])
+    }
+    otherSeats = ordered.filter(s => s.seatId !== selfSeat.seatId)
+  } else {
+    otherSeats = seats
+  }
   const topSeats = otherSeats.slice(0, 3)
   const sideSeats = otherSeats.slice(3)
   const leftSideSeats = sideSeats.slice(0, 2)
   const rightSideSeats = sideSeats.slice(2)
 
   const currentTurnSeatId = roomState.currentTurnSeatId
+  const lastActorSeatId =
+    lastEvent && typeof lastEvent.seatId === "number" ? lastEvent.seatId : null
   const passedSeatIdSet = new Set(roomState.passedSeatIds || [])
   const redTenPlayerIdSet = new Set(redTenPlayerIds || [])
+  const campInfo = roomState.campInfo || null
+  const redTenCampSeatIdSet = new Set(campInfo && campInfo.redTenCampSeats ? campInfo.redTenCampSeats : [])
 
   const lastCombo = roomState.lastCombo
   const lastComboCards = lastCombo ? lastCombo.cards || lastCombo : []
@@ -67,21 +81,27 @@ function GameTable({
     <div className="flex-1 flex flex-col bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.25),_transparent_60%),radial-gradient(circle_at_bottom,_rgba(34,197,94,0.25),_transparent_55%)]">
       <div className="flex-1 flex flex-col md:hidden">
         <div className="flex flex-wrap items-center justify-center px-2 pt-2 pb-1 gap-2">
-          {otherSeats.map(seat => (
-            <div key={seat.seatId} className="flex-[0_0_48%] max-w-[48%]">
-              <PlayerSeat
-                seat={seat}
-                align="top"
-                isCurrent={seat.seatId === currentTurnSeatId}
-                hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
-                hasCrown={kingPlayerId === seat.playerId}
-                isPassed={passedSeatIdSet.has(seat.seatId)}
-              />
-            </div>
-          ))}
+          {otherSeats.map(seat => {
+            const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
+            const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
+            return (
+              <div key={seat.seatId} className="flex-[0_0_48%] max-w-[48%]">
+                <PlayerSeat
+                  seat={seat}
+                  align="top"
+                  isCurrent={seat.seatId === currentTurnSeatId}
+                  hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
+                  hasCrown={kingPlayerId === seat.playerId}
+                  isPassed={passedSeatIdSet.has(seat.seatId)}
+                  isLastActor={seat.seatId === lastActorSeatId}
+                  campLabel={campLabel}
+                />
+              </div>
+            )
+          })}
         </div>
         <div className="flex-1 flex items-center justify-center px-2 pb-2">
-          <div className="w-full max-w-sm h-40 rounded-3xl bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_60px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="w-full max-w-sm h-40 rounded-full bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_60px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
             <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_rgba(34,197,94,0.25),_transparent_60%)]" />
             <div className="relative z-10 flex flex-col items-center gap-3">
               <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.28em] text-emerald-300">
@@ -187,22 +207,28 @@ function GameTable({
       <div className="hidden md:flex-1 md:flex md:flex-col">
         <div className="flex-1 flex flex-col md:flex-row">
           <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pt-3 md:pt-0">
-            {leftSideSeats.map(seat => (
-              <PlayerSeat
-                key={seat.seatId}
-                seat={seat}
-                align="left"
-                isCurrent={seat.seatId === currentTurnSeatId}
-                hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
-                hasCrown={kingPlayerId === seat.playerId}
-                isPassed={passedSeatIdSet.has(seat.seatId)}
-              />
-            ))}
+            {leftSideSeats.map(seat => {
+              const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
+              const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
+              return (
+                <PlayerSeat
+                  key={seat.seatId}
+                  seat={seat}
+                  align="left"
+                  isCurrent={seat.seatId === currentTurnSeatId}
+                  hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
+                  hasCrown={kingPlayerId === seat.playerId}
+                  isPassed={passedSeatIdSet.has(seat.seatId)}
+                  isLastActor={seat.seatId === lastActorSeatId}
+                  campLabel={campLabel}
+                />
+              )
+            })}
           </div>
           <div className="flex-1 flex flex-col px-2 md:px-0">
             <div className="flex-1 flex flex-col">
               <div className="flex-1 flex items-center justify-center pt-2 md:pt-0">
-                <div className="w-full max-w-md md:max-w-2xl h-52 md:h-64 rounded-3xl bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="w-full max-w-md md:max-w-2xl h-52 md:h-64 rounded-full bg-gradient-to-br from-emerald-900/70 via-emerald-800/70 to-slate-900/80 border border-emerald-500/40 shadow-[0_0_80px_rgba(16,185,129,0.55)] flex flex-col items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,_rgba(34,197,94,0.25),_transparent_60%)]" />
                   <div className="relative z-10 flex flex-col items-center gap-4">
                     <div className="flex items-center gap-3 text-xs uppercase tracking-[0.35em] text-emerald-300">
@@ -272,13 +298,13 @@ function GameTable({
                             History
                           </span>
                           <span className="text-[9px] text-emerald-200/60">
-                            最近 {Math.min(Math.max(playHistory.length - 1, 0), 3)} 手
+                            最近 {Math.min(playHistory.length, 3)} 手
                           </span>
                         </div>
                         <div className="flex flex-col gap-1.5">
                           {playHistory
-                            .slice(0, -1)
                             .slice(-3)
+                            .slice()
                             .reverse()
                             .map((entry, index) => {
                               const combo = entry.combo
@@ -286,11 +312,24 @@ function GameTable({
                                 return null
                               }
                               const cards = combo.cards || combo
+                              const fromSeatId =
+                                typeof entry.prevSeatId === "number" ? entry.prevSeatId : null
+                              const toSeatId =
+                                typeof entry.seatId === "number" ? entry.seatId : null
                               return (
                                 <div
                                   key={index}
                                   className="flex items-center gap-1.5 rounded-xl px-2 py-1 border border-emerald-700/60 bg-slate-950/75"
                                 >
+                                  <div className="flex flex-col mr-1.5 min-w-[72px]">
+                                    <div className="text-[10px] text-emerald-200">
+                                      {fromSeatId && toSeatId
+                                        ? `玩家 ${fromSeatId} → 玩家 ${toSeatId}`
+                                        : toSeatId
+                                        ? `玩家 ${toSeatId} 出牌`
+                                        : "有人出牌"}
+                                    </div>
+                                  </div>
                                   <div className="flex flex-wrap gap-[2px]">
                                     {cards.map((item, idx) => {
                                       const card = typeof item === "number" ? null : item
@@ -340,33 +379,45 @@ function GameTable({
               </div>
               <div className="h-24 md:h-28 flex items-center justify-center">
                 <div className="flex gap-2 md:gap-6">
-                  {topSeats.map(seat => (
-                    <PlayerSeat
-                      key={seat.seatId}
-                      seat={seat}
-                      align="top"
-                      isCurrent={seat.seatId === currentTurnSeatId}
-                      hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
-                      hasCrown={kingPlayerId === seat.playerId}
-                      isPassed={passedSeatIdSet.has(seat.seatId)}
-                    />
-                  ))}
+                  {topSeats.map(seat => {
+                    const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
+                    const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
+                    return (
+                      <PlayerSeat
+                        key={seat.seatId}
+                        seat={seat}
+                        align="top"
+                        isCurrent={seat.seatId === currentTurnSeatId}
+                        hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
+                        hasCrown={kingPlayerId === seat.playerId}
+                        isPassed={passedSeatIdSet.has(seat.seatId)}
+                        isLastActor={seat.seatId === lastActorSeatId}
+                        campLabel={campLabel}
+                      />
+                    )
+                  })}
                 </div>
               </div>
             </div>
           </div>
           <div className="md:w-1/5 flex md:flex-col items-center justify-center gap-3 md:gap-4 px-2 md:px-0 pb-3 md:pb-0">
-            {rightSideSeats.map(seat => (
-              <PlayerSeat
-                key={seat.seatId}
-                seat={seat}
-                align="right"
-                isCurrent={seat.seatId === currentTurnSeatId}
-                hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
-                hasCrown={kingPlayerId === seat.playerId}
-                isPassed={passedSeatIdSet.has(seat.seatId)}
-              />
-            ))}
+            {rightSideSeats.map(seat => {
+              const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
+              const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
+              return (
+                <PlayerSeat
+                  key={seat.seatId}
+                  seat={seat}
+                  align="right"
+                  isCurrent={seat.seatId === currentTurnSeatId}
+                  hasRedTen={redTenPlayerIdSet.has(seat.playerId)}
+                  hasCrown={kingPlayerId === seat.playerId}
+                  isPassed={passedSeatIdSet.has(seat.seatId)}
+                  isLastActor={seat.seatId === lastActorSeatId}
+                  campLabel={campLabel}
+                />
+              )
+            })}
           </div>
         </div>
         <div className="h-40 md:h-40 px-3 md:px-10 flex items-center justify-between bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-950/40 border-t border-slate-800/80">
