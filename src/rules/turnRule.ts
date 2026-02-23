@@ -181,6 +181,7 @@ function handleInstantWin(state: GameState, action: PlayerAction): HandleActionR
       handCards: remaining,
       isFinished: true,
       isFirstFinisher: true,
+      canInstantWin: false,
     }
   })
   const nextState: GameState = {
@@ -504,9 +505,10 @@ function findNextActiveSeat(seats: SeatState[], fromSeatId: SeatId): SeatState |
     return null
   }
   const index = active.findIndex(s => s.seatId === fromSeatId)
-  if (index === -1) {
-    return active[0]
+  if (index !== -1) {
+    const nextIndex = (index + 1) % active.length
+    return active[nextIndex]
   }
-  const nextIndex = (index + 1) % active.length
-  return active[nextIndex]
+  const after = active.find(s => s.seatId > fromSeatId)
+  return after || active[0]
 }

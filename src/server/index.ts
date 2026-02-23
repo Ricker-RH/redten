@@ -1,3 +1,4 @@
+import http from "http"
 import { WebSocketServer } from "ws"
 import { RoomManager, WebSocketLike } from "./roomManager"
 import { ConsoleLogger } from "./logger"
@@ -5,7 +6,14 @@ import { ConsoleLogger } from "./logger"
 const logger = new ConsoleLogger()
 const roomManager = new RoomManager(logger)
 
-const wss = new WebSocketServer({ port: 3000 })
+const port = Number(process.env.PORT) || 3000
+
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" })
+  res.end("OK")
+})
+
+const wss = new WebSocketServer({ server })
 
 wss.on("connection", (socket, req) => {
   const url = req.url || "/"
@@ -40,5 +48,7 @@ wss.on("connection", (socket, req) => {
 
 roomManager.startServerLoop()
 
-// eslint-disable-next-line no-console
-console.log("WebSocket server started on ws://localhost:3000")
+server.listen(port, () => {
+  // eslint-disable-next-line no-console
+  console.log(`WebSocket server started on ws://localhost:${port}`)
+})

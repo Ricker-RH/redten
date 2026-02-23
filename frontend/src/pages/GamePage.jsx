@@ -94,11 +94,33 @@ function GamePage({ playerId, roomId, onExit }) {
   })
 
   const gameState = room && room.gameState ? room.gameState : null
+  const selfSeat =
+    gameState && gameState.seats ? gameState.seats.find(s => s.playerId === playerId) : null
+  const canInstantWin = !!(selfSeat && selfSeat.canInstantWin)
 
   const handleToggleCard = cardId => {
     setSelectedCardIds(prev =>
       prev.includes(cardId) ? prev.filter(id => id !== cardId) : [...prev, cardId]
     )
+  }
+
+  const handleInstantWin = () => {
+    if (!gameState || !selfSeat) {
+      return
+    }
+    const redTenCards = selfSeat.handCards ? selfSeat.handCards.filter(card => card.isRedTen) : []
+    if (redTenCards.length < 3) {
+      return
+    }
+    const cardIds = redTenCards.slice(0, 3).map(card => card.id)
+    sendAction({
+      type: "PLAYER_ACTION",
+      roomId,
+      action: {
+        type: "INSTANT_WIN",
+        cardIds,
+      },
+    })
   }
 
   const handlePlay = () => {
@@ -185,6 +207,8 @@ function GamePage({ playerId, roomId, onExit }) {
             onToggleCard={handleToggleCard}
             onPlay={handlePlay}
             onPass={handlePass}
+            onInstantWin={handleInstantWin}
+            canInstantWin={canInstantWin}
             lastEvent={lastEvent}
             playHistory={playHistory}
             kingPlayerId={kingPlayerId}

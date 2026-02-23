@@ -30,6 +30,8 @@ function GameTable({
   onToggleCard,
   onPlay,
   onPass,
+  onInstantWin,
+  canInstantWin,
   lastEvent,
   playHistory = [],
   kingPlayerId,
@@ -256,6 +258,14 @@ function GameTable({
             />
           </div>
           <div className="w-64 flex flex-col items-end justify-center gap-3">
+            {canInstantWin && (
+              <button
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-400 text-xs font-semibold text-slate-950 shadow-lg shadow-rose-500/50 hover:from-rose-400 hover:to-amber-300 hover:shadow-rose-400/70 active:scale-[0.98] transition"
+                onClick={onInstantWin}
+              >
+                三红十直接获胜
+              </button>
+            )}
             <button
               className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-sm font-semibold text-slate-950 shadow-lg shadow-emerald-500/50 hover:from-emerald-400 hover:to-cyan-400 hover:shadow-emerald-400/70 active:scale-[0.98] transition disabled:opacity-40 disabled:cursor-not-allowed"
               onClick={onPlay}
