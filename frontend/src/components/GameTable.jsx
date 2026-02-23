@@ -390,8 +390,6 @@ function GameTable({
               <div className="h-24 md:h-28 flex items-center justify-center">
                 <div className="flex gap-2 md:gap-6">
                   {topSeats.map(seat => {
-                    const isRedCamp = redTenCampSeatIdSet.has(seat.seatId)
-                    const campLabel = isRedCamp ? "红十阵营" : "普通阵营"
                     return (
                       <PlayerSeat
                         key={seat.seatId}
@@ -402,7 +400,8 @@ function GameTable({
                         hasCrown={kingPlayerId === seat.playerId}
                         isPassed={passedSeatIdSet.has(seat.seatId)}
                         isLastActor={seat.seatId === lastActorSeatId}
-                        campLabel={campLabel}
+                        guessCamp={seatCampGuesses[seat.seatId] || null}
+                        onToggleGuess={() => toggleSeatGuess(seat.seatId)}
                       />
                     )
                   })}
