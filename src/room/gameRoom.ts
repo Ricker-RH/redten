@@ -147,15 +147,29 @@ export function applyPlayerAction(room: GameRoom, action: PlayerAction): RoomAct
       accepted: false,
     }
   }
-  const result = handleAction(room.gameState, action)
-  const nextGameState = result.accepted ? result.nextState : room.gameState
+  const firstResult = handleAction(room.gameState, action)
+  let nextGameState = firstResult.accepted ? firstResult.nextState : room.gameState
+  let events: GameEvent[] = firstResult.events
   let nextLastWinnerSeatId = room.lastWinnerSeatId
   if (
-    result.accepted &&
+    firstResult.accepted &&
     nextGameState.phase === "SETTLING" &&
     nextGameState.firstFinisherSeatId
   ) {
     nextLastWinnerSeatId = nextGameState.firstFinisherSeatId
+  }
+  if (firstResult.accepted && nextGameState.phase === "SETTLING") {
+    const settleResult = handleAction(nextGameState, {
+      ...action,
+      cardIds: [],
+      timestamp: Date.now(),
+    })
+    if (settleResult.accepted) {
+      nextGameState = settleResult.nextState
+      if (settleResult.events.length > 0) {
+        events = events.concat(settleResult.events)
+      }
+    }
   }
   const nextRoom: GameRoom = {
     ...room,
@@ -164,8 +178,8 @@ export function applyPlayerAction(room: GameRoom, action: PlayerAction): RoomAct
   }
   return {
     room: nextRoom,
-    events: result.events,
-    accepted: result.accepted,
+    events,
+    accepted: firstResult.accepted,
   }
 }
 
