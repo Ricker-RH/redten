@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react"
 
-const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000"
+const defaultWsUrl = () => {
+  const explicit = import.meta.env.VITE_WS_URL
+  if (explicit) {
+    return explicit
+  }
+  if (typeof window === "undefined") {
+    return "ws://localhost:3000"
+  }
+  const protocol = window.location.protocol === "https:" ? "wss" : "ws"
+  const host = window.location.hostname
+  const port = 3000
+  return `${protocol}://${host}:${port}`
+}
+
+const WS_URL = defaultWsUrl()
 
 function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, onChat, onVoiceChat, onError }) {
   const [status, setStatus] = useState("connecting")
@@ -84,6 +98,12 @@ function useGameSocket({ playerId, roomId, onSnapshot, onEvent, onActionResult, 
             }
             onError(message)
           }
+        }
+      }
+
+      ws.onerror = () => {
+        if (onError) {
+          onError("无法连接到游戏服务器，请检查网络或稍后重试")
         }
       }
 
